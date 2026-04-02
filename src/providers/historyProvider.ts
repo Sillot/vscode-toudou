@@ -13,15 +13,15 @@ export class HistoryProvider implements vscode.TreeDataProvider<CompletedTodo> {
   getTreeItem(element: CompletedTodo): vscode.TreeItem {
     const completedDate = new Date(element.completedAt).toLocaleDateString();
     const item = new vscode.TreeItem(element.title, vscode.TreeItemCollapsibleState.None);
-    item.description = `completed ${completedDate}`;
+    item.description = vscode.l10n.t('completed {0}', completedDate);
     item.contextValue = 'completedTodo';
-    item.iconPath = new vscode.ThemeIcon('pass-filled');
+    item.checkboxState = vscode.TreeItemCheckboxState.Checked;
 
     const category = element.categoryId ? getCategoryById(element.categoryId) : undefined;
     const tooltipParts = [element.title];
     if (element.description) tooltipParts.push(element.description);
-    if (category) tooltipParts.push(`Category: ${category.name}`);
-    tooltipParts.push(`Completed: ${completedDate}`);
+    if (category) tooltipParts.push(vscode.l10n.t('Category: {0}', category.name));
+    tooltipParts.push(vscode.l10n.t('Completed: {0}', completedDate));
     item.tooltip = tooltipParts.join('\n');
 
     return item;

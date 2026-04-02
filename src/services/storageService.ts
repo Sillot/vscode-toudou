@@ -126,6 +126,13 @@ export async function renameCategory(id: string, newName: string): Promise<void>
   await save();
 }
 
+export async function updateCategoryEmoji(id: string, emoji: string | undefined): Promise<void> {
+  const cat = data.categories.find((c) => c.id === id);
+  if (!cat) return;
+  cat.emoji = emoji;
+  await save();
+}
+
 export async function deleteCategory(id: string): Promise<void> {
   // Move todos to uncategorized (top-level)
   const uncategorized = getUncategorizedTodos();

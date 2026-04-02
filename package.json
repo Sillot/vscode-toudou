@@ -1,7 +1,7 @@
 {
   "name": "toudou",
   "displayName": "Toudou",
-  "description": "A simple todo list in the VS Code sidebar",
+  "description": "%description%",
   "version": "0.0.1",
   "publisher": "quentin",
   "engines": {
@@ -11,14 +11,15 @@
     "Other"
   ],
   "activationEvents": [],
+  "l10n": "./l10n",
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "toudou",
-          "title": "Toudou",
-          "icon": "resources/icon.svg"
+          "title": "%viewsContainers.toudou.title%",
+          "icon": "resources/logo.svg"
         }
       ]
     },
@@ -26,82 +27,91 @@
       "toudou": [
         {
           "id": "toudouView",
-          "name": "Todos"
+          "name": "%views.todos.name%"
         },
         {
           "id": "toudouHistoryView",
-          "name": "History"
+          "name": "%views.history.name%"
         }
       ]
     },
     "commands": [
       {
         "command": "toudou.addTodo",
-        "title": "Toudou: Add Todo",
+        "title": "%command.addTodo%",
         "icon": "$(add)"
       },
       {
         "command": "toudou.completeTodo",
-        "title": "Toudou: Complete Todo"
+        "title": "%command.completeTodo%"
       },
       {
         "command": "toudou.deleteTodo",
-        "title": "Toudou: Delete Todo"
+        "title": "%command.deleteTodo%"
       },
       {
         "command": "toudou.addCategory",
-        "title": "Toudou: Create Category"
+        "title": "%command.addCategory%",
+        "icon": "$(folder-add)"
       },
       {
         "command": "toudou.renameCategory",
-        "title": "Toudou: Rename Category"
+        "title": "%command.renameCategory%"
       },
       {
         "command": "toudou.deleteCategory",
-        "title": "Toudou: Delete Category"
+        "title": "%command.deleteCategory%"
       },
       {
         "command": "toudou.restoreTodo",
-        "title": "Toudou: Restore from History"
+        "title": "%command.restoreTodo%"
       },
       {
         "command": "toudou.purgeHistory",
-        "title": "Toudou: Purge History",
+        "title": "%command.purgeHistory%",
         "icon": "$(clear-all)"
       },
       {
         "command": "toudou.completeTodoInline",
-        "title": "Complete",
+        "title": "%command.completeTodoInline%",
         "icon": "$(check)"
       },
       {
         "command": "toudou.deleteTodoInline",
-        "title": "Delete",
+        "title": "%command.deleteTodoInline%",
         "icon": "$(trash)"
       },
       {
         "command": "toudou.editTodoTitle",
-        "title": "Edit Title"
+        "title": "%command.editTodoTitle%"
       },
       {
         "command": "toudou.editTodoDescription",
-        "title": "Edit Description"
+        "title": "%command.editTodoDescription%"
       },
       {
         "command": "toudou.changeTodoCategory",
-        "title": "Change Category"
+        "title": "%command.changeTodoCategory%"
       },
       {
         "command": "toudou.renameCategoryInline",
-        "title": "Rename Category"
+        "title": "%command.renameCategoryInline%"
       },
       {
         "command": "toudou.deleteCategoryInline",
-        "title": "Delete Category"
+        "title": "%command.deleteCategoryInline%"
+      },
+      {
+        "command": "toudou.copyTodoText",
+        "title": "%command.copyTodoText%"
+      },
+      {
+        "command": "toudou.changeCategoryEmoji",
+        "title": "%command.changeCategoryEmoji%"
       },
       {
         "command": "toudou.restoreTodoInline",
-        "title": "Restore",
+        "title": "%command.restoreTodoInline%",
         "icon": "$(debug-restart)"
       }
     ],
@@ -113,6 +123,11 @@
           "group": "navigation"
         },
         {
+          "command": "toudou.addCategory",
+          "when": "view == toudouView",
+          "group": "navigation"
+        },
+        {
           "command": "toudou.purgeHistory",
           "when": "view == toudouHistoryView",
           "group": "navigation"
@@ -120,14 +135,9 @@
       ],
       "view/item/context": [
         {
-          "command": "toudou.completeTodoInline",
-          "when": "view == toudouView && viewItem == todo",
-          "group": "inline@1"
-        },
-        {
           "command": "toudou.deleteTodoInline",
           "when": "view == toudouView && viewItem == todo",
-          "group": "inline@2"
+          "group": "inline@1"
         },
         {
           "command": "toudou.editTodoTitle",
@@ -145,6 +155,11 @@
           "group": "1_edit@3"
         },
         {
+          "command": "toudou.copyTodoText",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "2_copy@1"
+        },
+        {
           "command": "toudou.renameCategoryInline",
           "when": "view == toudouView && viewItem == category",
           "group": "1_category@1"
@@ -153,6 +168,11 @@
           "command": "toudou.deleteCategoryInline",
           "when": "view == toudouView && viewItem == category",
           "group": "1_category@2"
+        },
+        {
+          "command": "toudou.changeCategoryEmoji",
+          "when": "view == toudouView && viewItem == category",
+          "group": "1_category@3"
         },
         {
           "command": "toudou.restoreTodoInline",
@@ -190,16 +210,33 @@
           "when": "false"
         },
         {
+          "command": "toudou.copyTodoText",
+          "when": "false"
+        },
+        {
+          "command": "toudou.changeCategoryEmoji",
+          "when": "false"
+        },
+        {
           "command": "toudou.restoreTodoInline",
           "when": "false"
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "toudou.copyTodoText",
+        "key": "ctrl+c",
+        "mac": "cmd+c",
+        "when": "focusedView == toudouView"
+      }
+    ],
     "languageModelTools": [
       {
         "name": "toudou_createTodo",
-        "displayName": "Create Todo",
-        "description": "Create a new todo in the workspace todo list",
+        "displayName": "%tools.createTodo.displayName%",
+        "description": "%tools.createTodo.description%",
+        "modelDescription": "Create a new todo item in the user's workspace todo list. Optionally assign it to a category (created automatically if it doesn't exist) and add a description.",
         "parametersSchema": {
           "type": "object",
           "properties": {
@@ -223,8 +260,9 @@
       },
       {
         "name": "toudou_listTodos",
-        "displayName": "List Todos",
-        "description": "List active todos in the workspace",
+        "displayName": "%tools.listTodos.displayName%",
+        "description": "%tools.listTodos.description%",
+        "modelDescription": "List all active (non-completed) todos in the user's workspace. Optionally filter by category name. Returns id, title, category and description for each todo.",
         "parametersSchema": {
           "type": "object",
           "properties": {
@@ -237,8 +275,9 @@
       },
       {
         "name": "toudou_completeTodo",
-        "displayName": "Complete Todo",
-        "description": "Mark a todo as completed",
+        "displayName": "%tools.completeTodo.displayName%",
+        "description": "%tools.completeTodo.description%",
+        "modelDescription": "Mark a todo as completed and move it to history. Provide either the todo id or its title (fuzzy matched).",
         "parametersSchema": {
           "type": "object",
           "properties": {
@@ -255,8 +294,9 @@
       },
       {
         "name": "toudou_deleteTodo",
-        "displayName": "Delete Todo",
-        "description": "Permanently delete a todo",
+        "displayName": "%tools.deleteTodo.displayName%",
+        "description": "%tools.deleteTodo.description%",
+        "modelDescription": "Permanently delete a todo from the workspace. Provide either the todo id or its title (fuzzy matched). This action cannot be undone.",
         "parametersSchema": {
           "type": "object",
           "properties": {
@@ -273,8 +313,9 @@
       },
       {
         "name": "toudou_createCategory",
-        "displayName": "Create Category",
-        "description": "Create a new todo category",
+        "displayName": "%tools.createCategory.displayName%",
+        "description": "%tools.createCategory.description%",
+        "modelDescription": "Create a new category to organize todos. Categories group todos in the sidebar tree view.",
         "parametersSchema": {
           "type": "object",
           "properties": {
@@ -290,8 +331,9 @@
       },
       {
         "name": "toudou_renameCategory",
-        "displayName": "Rename Category",
-        "description": "Rename an existing category",
+        "displayName": "%tools.renameCategory.displayName%",
+        "description": "%tools.renameCategory.description%",
+        "modelDescription": "Rename an existing todo category. Provide the current name and the new name.",
         "parametersSchema": {
           "type": "object",
           "properties": {

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="16 6 96 112">
+  <defs>
+    <mask id="face">
+      <rect x="16" y="6" width="96" height="112" fill="white"/>
+      <!-- Eyes (cut out) -->
+      <path d="M 46,86 Q 52,78 58,86" stroke="black" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <path d="M 66,86 Q 72,78 78,86" stroke="black" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <!-- Nose (cut out) -->
+      <ellipse cx="62" cy="97" rx="5" ry="4" fill="black"/>
+      <!-- Whiskers (cut out) -->
+      <path d="M 46,92 Q 36,88 24,88" stroke="black" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <path d="M 46,97 Q 34,96 22,96" stroke="black" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <path d="M 78,92 Q 88,88 100,88" stroke="black" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <path d="M 78,97 Q 90,96 102,96" stroke="black" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    </mask>
+  </defs>
+  <g fill="currentColor" mask="url(#face)">
+    <!-- Left ear -->
+    <path d="M 62,68 C 56,56 42,40 34,44 C 26,48 30,62 38,66 C 46,70 58,72 62,68 Z"/>
+    <!-- Right ear -->
+    <path d="M 66,68 C 70,44 88,18 100,12 C 112,6 114,14 108,26 C 102,38 84,58 74,68 Z"/>
+    <!-- Head -->
+    <circle cx="62" cy="90" r="24"/>
+  </g>
+</svg>

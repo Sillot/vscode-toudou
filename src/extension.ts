@@ -20,13 +20,32 @@ export function activate(context: vscode.ExtensionContext): void {
     refreshAll();
   });
 
-  context.subscriptions.push(
-    vscode.window.createTreeView('toudouView', {
-      treeDataProvider: todoProvider,
-      dragAndDropController: todoProvider,
-    }),
-    vscode.window.registerTreeDataProvider('toudouHistoryView', historyProvider),
-  );
+  const todoTreeView = vscode.window.createTreeView('toudouView', {
+    treeDataProvider: todoProvider,
+    dragAndDropController: todoProvider,
+  });
+
+  todoTreeView.onDidChangeCheckboxState(async (e) => {
+    for (const [item] of e.items) {
+      if ('title' in item && 'id' in item) {
+        await storage.completeTodoById((item as Todo).id);
+      }
+    }
+  });
+
+  const historyTreeView = vscode.window.createTreeView('toudouHistoryView', {
+    treeDataProvider: historyProvider,
+  });
+
+  historyTreeView.onDidChangeCheckboxState(async (e) => {
+    for (const [item] of e.items) {
+      if ('id' in item) {
+        await storage.restoreFromHistory((item as CompletedTodo).id);
+      }
+    }
+  });
+
+  context.subscriptions.push(todoTreeView, historyTreeView);
 
   // --- Palette commands ---
 
@@ -57,11 +76,20 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.changeTodoCategory', (todo: Todo) =>
       changeTodoCategory(todo),
     ),
+    vscode.commands.registerCommand('toudou.copyTodoText', (todo?: Todo) => {
+      const target = todo ?? todoTreeView.selection.find((s): s is Todo => 'title' in s);
+      if (!target) return;
+      const text = target.description ? `${target.title}\n${target.description}` : target.title;
+      vscode.env.clipboard.writeText(text);
+    }),
     vscode.commands.registerCommand('toudou.renameCategoryInline', (cat) =>
       renameCategoryInline(cat),
     ),
     vscode.commands.registerCommand('toudou.deleteCategoryInline', (cat) =>
       storage.deleteCategory(cat.id),
+    ),
+    vscode.commands.registerCommand('toudou.changeCategoryEmoji', (cat) =>
+      changeCategoryEmoji(cat),
     ),
     vscode.commands.registerCommand('toudou.restoreTodoInline', (completed: CompletedTodo) =>
       storage.restoreFromHistory(completed.id),
@@ -76,8 +104,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
 async function addTodoFlow(): Promise<void> {
   const title = await vscode.window.showInputBox({
-    prompt: 'Todo title',
-    placeHolder: 'What needs to be done?',
+    prompt: vscode.l10n.t('Todo title'),
+    placeHolder: vscode.l10n.t('What needs to be done?'),
     ignoreFocusOut: true,
   });
   if (!title) return;
@@ -86,8 +114,8 @@ async function addTodoFlow(): Promise<void> {
   if (categoryId === null) return; // cancelled
 
   const description = await vscode.window.showInputBox({
-    prompt: 'Description (optional)',
-    placeHolder: 'Press Enter to skip',
+    prompt: vscode.l10n.t('Description (optional)'),
+    placeHolder: vscode.l10n.t('Press Enter to skip'),
     ignoreFocusOut: true,
   });
 
@@ -98,25 +126,28 @@ async function addTodoFlow(): Promise<void> {
 async function pickOrCreateCategory(): Promise<string | undefined | null> {
   const categories = storage.getCategories();
   const items: vscode.QuickPickItem[] = [
-    { label: 'No category', description: 'Add to top-level' },
-    { label: '$(add) New category...', description: 'Create a new category' },
+    { label: vscode.l10n.t('No category'), description: vscode.l10n.t('Add to top-level') },
+    {
+      label: vscode.l10n.t('$(add) New category...'),
+      description: vscode.l10n.t('Create a new category'),
+    },
     ...categories.map((c) => ({ label: c.name, description: c.id })),
   ];
 
   const pick = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select a category',
+    placeHolder: vscode.l10n.t('Select a category'),
     ignoreFocusOut: true,
   });
   if (!pick) return null; // cancelled
 
-  if (pick.label === 'No category') {
+  if (pick.label === vscode.l10n.t('No category')) {
     return undefined; // uncategorized
   }
 
   if (pick.label.startsWith('$(add)')) {
     const name = await vscode.window.showInputBox({
-      prompt: 'Category name',
-      placeHolder: 'Enter category name...',
+      prompt: vscode.l10n.t('Category name'),
+      placeHolder: vscode.l10n.t('Enter category name...'),
       ignoreFocusOut: true,
     });
     if (!name) return null;
@@ -134,13 +165,13 @@ async function pickOrCreateCategory(): Promise<string | undefined | null> {
 }
 
 async function completeTodoPalette(): Promise<void> {
-  const todo = await pickTodo('Select a todo to complete');
+  const todo = await pickTodo(vscode.l10n.t('Select a todo to complete'));
   if (!todo) return;
   await storage.completeTodoById(todo.id);
 }
 
 async function deleteTodoPalette(): Promise<void> {
-  const todo = await pickTodo('Select a todo to delete');
+  const todo = await pickTodo(vscode.l10n.t('Select a todo to delete'));
   if (!todo) return;
   await storage.deleteTodo(todo.id);
 }
@@ -148,7 +179,7 @@ async function deleteTodoPalette(): Promise<void> {
 async function pickTodo(placeholder: string): Promise<Todo | undefined> {
   const todos = storage.getTodos();
   if (todos.length === 0) {
-    vscode.window.showInformationMessage('No todos found.');
+    vscode.window.showInformationMessage(vscode.l10n.t('No todos found.'));
     return undefined;
   }
 
@@ -157,7 +188,7 @@ async function pickTodo(placeholder: string): Promise<Todo | undefined> {
     const cat = categories.find((c) => c.id === t.categoryId);
     return {
       label: t.title,
-      description: cat?.name ?? 'Uncategorized',
+      description: cat?.name ?? vscode.l10n.t('Uncategorized'),
       todo: t,
     };
   });
@@ -171,15 +202,15 @@ async function pickTodo(placeholder: string): Promise<Todo | undefined> {
 
 async function addCategoryFlow(): Promise<void> {
   const name = await vscode.window.showInputBox({
-    prompt: 'Category name',
-    placeHolder: 'Enter category name...',
+    prompt: vscode.l10n.t('Category name'),
+    placeHolder: vscode.l10n.t('Enter category name...'),
     ignoreFocusOut: true,
   });
   if (!name) return;
 
   const existing = storage.getCategoryByName(name);
   if (existing) {
-    vscode.window.showWarningMessage(`Category "${name}" already exists.`);
+    vscode.window.showWarningMessage(vscode.l10n.t('Category "{0}" already exists.', name));
     return;
   }
 
@@ -190,18 +221,18 @@ async function addCategoryFlow(): Promise<void> {
 async function renameCategoryPalette(): Promise<void> {
   const categories = storage.getCategories();
   if (categories.length === 0) {
-    vscode.window.showInformationMessage('No categories to rename.');
+    vscode.window.showInformationMessage(vscode.l10n.t('No categories to rename.'));
     return;
   }
 
   const pick = await vscode.window.showQuickPick(
     categories.map((c) => ({ label: c.name, id: c.id })),
-    { placeHolder: 'Select a category to rename', ignoreFocusOut: true },
+    { placeHolder: vscode.l10n.t('Select a category to rename'), ignoreFocusOut: true },
   );
   if (!pick) return;
 
   const newName = await vscode.window.showInputBox({
-    prompt: 'New name',
+    prompt: vscode.l10n.t('New name'),
     value: pick.label,
     ignoreFocusOut: true,
   });
@@ -213,14 +244,14 @@ async function renameCategoryPalette(): Promise<void> {
 async function deleteCategoryPalette(): Promise<void> {
   const categories = storage.getCategories();
   if (categories.length === 0) {
-    vscode.window.showInformationMessage('No categories to delete.');
+    vscode.window.showInformationMessage(vscode.l10n.t('No categories to delete.'));
     return;
   }
 
   const pick = await vscode.window.showQuickPick(
     categories.map((c) => ({ label: c.name, id: c.id })),
     {
-      placeHolder: 'Select a category to delete (todos become uncategorized)',
+      placeHolder: vscode.l10n.t('Select a category to delete (todos become uncategorized)'),
       ignoreFocusOut: true,
     },
   );
@@ -232,18 +263,18 @@ async function deleteCategoryPalette(): Promise<void> {
 async function restoreTodoPalette(): Promise<void> {
   const history = storage.getHistory();
   if (history.length === 0) {
-    vscode.window.showInformationMessage('History is empty.');
+    vscode.window.showInformationMessage(vscode.l10n.t('History is empty.'));
     return;
   }
 
   const items = history.map((h) => ({
     label: h.title,
-    description: `completed ${new Date(h.completedAt).toLocaleDateString()}`,
+    description: vscode.l10n.t('completed {0}', new Date(h.completedAt).toLocaleDateString()),
     id: h.id,
   }));
 
   const pick = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select a todo to restore',
+    placeHolder: vscode.l10n.t('Select a todo to restore'),
     ignoreFocusOut: true,
   });
   if (!pick) return;
@@ -254,23 +285,23 @@ async function restoreTodoPalette(): Promise<void> {
 async function purgeHistoryFlow(): Promise<void> {
   const history = storage.getHistory();
   if (history.length === 0) {
-    vscode.window.showInformationMessage('History is already empty.');
+    vscode.window.showInformationMessage(vscode.l10n.t('History is already empty.'));
     return;
   }
 
   const confirm = await vscode.window.showWarningMessage(
-    `Delete all ${history.length} completed todo(s) from history?`,
+    vscode.l10n.t('Delete all {0} completed todo(s) from history?', history.length),
     { modal: true },
-    'Purge',
+    vscode.l10n.t('Purge'),
   );
-  if (confirm !== 'Purge') return;
+  if (confirm !== vscode.l10n.t('Purge')) return;
 
   await storage.purgeHistory();
 }
 
 async function editTodoTitle(todo: Todo): Promise<void> {
   const newTitle = await vscode.window.showInputBox({
-    prompt: 'Edit title',
+    prompt: vscode.l10n.t('Edit title'),
     value: todo.title,
     ignoreFocusOut: true,
   });
@@ -280,9 +311,9 @@ async function editTodoTitle(todo: Todo): Promise<void> {
 
 async function editTodoDescription(todo: Todo): Promise<void> {
   const newDesc = await vscode.window.showInputBox({
-    prompt: 'Edit description',
+    prompt: vscode.l10n.t('Edit description'),
     value: todo.description ?? '',
-    placeHolder: 'Leave empty to remove description',
+    placeHolder: vscode.l10n.t('Leave empty to remove description'),
     ignoreFocusOut: true,
   });
   if (newDesc === undefined) return;
@@ -298,7 +329,7 @@ async function changeTodoCategory(todo: Todo): Promise<void> {
   }));
 
   const pick = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select new category',
+    placeHolder: vscode.l10n.t('Select new category'),
     ignoreFocusOut: true,
   });
   if (!pick || pick.id === todo.categoryId) return;
@@ -313,12 +344,64 @@ async function renameCategoryInline(cat: { id: string; name: string }): Promise<
   if (!category) return;
 
   const newName = await vscode.window.showInputBox({
-    prompt: 'Rename category',
+    prompt: vscode.l10n.t('Rename category'),
     value: category.name,
     ignoreFocusOut: true,
   });
   if (!newName || newName === category.name) return;
   await storage.renameCategory(cat.id, newName);
+}
+
+const EMOJI_OPTIONS = [
+  '📋',
+  '🚀',
+  '🐛',
+  '✨',
+  '🔧',
+  '📦',
+  '🎨',
+  '📝',
+  '🔥',
+  '💡',
+  '⚡',
+  '🧪',
+  '📌',
+  '🏷️',
+  '💻',
+  '🌐',
+  '🔒',
+  '📊',
+  '🎯',
+  '❤️',
+  '⭐',
+  '🏠',
+  '📁',
+  '🛠️',
+  '🧩',
+  '🎉',
+  '⚙️',
+  '📅',
+  '🔔',
+  '💬',
+];
+
+async function changeCategoryEmoji(cat: { id: string }): Promise<void> {
+  const category = storage.getCategoryById(cat.id);
+  if (!category) return;
+
+  const items: vscode.QuickPickItem[] = [
+    { label: '$(close) No emoji', description: 'Remove emoji' },
+    ...EMOJI_OPTIONS.map((e) => ({ label: e })),
+  ];
+
+  const pick = await vscode.window.showQuickPick(items, {
+    placeHolder: vscode.l10n.t('Pick an emoji for "{0}"', category.name),
+    ignoreFocusOut: true,
+  });
+  if (!pick) return;
+
+  const emoji = pick.label.startsWith('$(close)') ? undefined : pick.label;
+  await storage.updateCategoryEmoji(cat.id, emoji);
 }
 
 export function deactivate(): void {}

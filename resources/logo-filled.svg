@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Left ear (floppy, natural lop shape) -->
+  <path d="M 62,68 C 56,56 42,40 34,44 C 26,48 30,62 38,66 C 46,70 58,72 62,68 Z"
+        fill="#C5C5C5"/>
+
+  <!-- Right ear (upright, strong angle to the right) -->
+  <path d="M 66,68 C 70,44 88,18 100,12 C 112,6 114,14 108,26 C 102,38 84,58 74,68 Z"
+        fill="#C5C5C5"/>
+
+  <!-- Head -->
+  <circle cx="62" cy="90" r="24" fill="#C5C5C5"/>
+
+  <!-- Eyes -->
+  <circle cx="52" cy="86" r="3.5" fill="white"/>
+  <circle cx="72" cy="86" r="3.5" fill="white"/>
+
+  <!-- Nose -->
+  <ellipse cx="62" cy="96" rx="4" ry="3" fill="white"/>
+
+  <!-- Whiskers left -->
+  <path d="M 46,92 Q 36,88 24,88" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M 46,96 Q 34,95 22,95" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M 46,100 Q 36,104 24,104" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+  <!-- Whiskers right -->
+  <path d="M 78,92 Q 88,88 100,88" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M 78,96 Q 90,95 102,95" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M 78,100 Q 88,104 100,104" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+</svg>

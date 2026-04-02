@@ -51,6 +51,24 @@ Les specs détaillées sont dans le dossier `specs/` à la racine :
 
 **Toujours consulter les specs avant d'implémenter une fonctionnalité.**
 
+## Docker
+
+Toutes les commandes (build, lint, typecheck, npm) doivent être exécutées dans le container Docker `toudou-dev`, **jamais** directement sur l'hôte.
+
+```bash
+docker exec toudou-dev npm run typecheck
+docker exec toudou-dev npm run lint
+docker exec toudou-dev npm run compile
+```
+
+Le container est créé à partir du `Dockerfile` à la racine (image `toudou-dev`), avec le workspace monté en volume :
+
+```bash
+docker run -d --name toudou-dev \
+  -v /home/quentin/Projects/vscode-extensions/vscode-toudou:/home/node/workspace \
+  -w /home/node/workspace -u node toudou-dev tail -f /dev/null
+```
+
 ## Règles de contribution
 
 - Un fichier = une responsabilité.

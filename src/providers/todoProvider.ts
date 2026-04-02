@@ -165,22 +165,27 @@ export class TodoProvider
 
   private getCategoryItem(category: Category): vscode.TreeItem {
     const todos = getTodosByCategory(category.id);
+    const label = category.emoji
+      ? `${category.emoji} ${category.name} (${todos.length})`
+      : `${category.name} (${todos.length})`;
     const item = new vscode.TreeItem(
-      `${category.name} (${todos.length})`,
+      label,
       todos.length > 0
         ? vscode.TreeItemCollapsibleState.Expanded
         : vscode.TreeItemCollapsibleState.Collapsed,
     );
     item.contextValue = 'category';
-    item.iconPath = new vscode.ThemeIcon('folder');
+    if (!category.emoji) {
+      item.iconPath = new vscode.ThemeIcon('folder');
+    }
     return item;
   }
 
   private getTodoItem(todo: Todo): vscode.TreeItem {
     const item = new vscode.TreeItem(todo.title, vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'todo';
-    item.iconPath = new vscode.ThemeIcon('circle-large-outline');
-    item.tooltip = todo.description || todo.title;
+    item.checkboxState = vscode.TreeItemCheckboxState.Unchecked;
+    item.tooltip = todo.description ? `${todo.title}\n${todo.description}` : todo.title;
     return item;
   }
 }
