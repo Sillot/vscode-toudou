@@ -1,0 +1,338 @@
+{
+  "name": "toudou",
+  "displayName": "Toudou",
+  "description": "A simple todo list in the VS Code sidebar",
+  "version": "0.0.1",
+  "publisher": "quentin",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "toudou",
+          "title": "Toudou",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "toudou": [
+        {
+          "id": "toudouView",
+          "name": "Todos"
+        },
+        {
+          "id": "toudouHistoryView",
+          "name": "History"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "toudou.addTodo",
+        "title": "Toudou: Add Todo",
+        "icon": "$(add)"
+      },
+      {
+        "command": "toudou.completeTodo",
+        "title": "Toudou: Complete Todo"
+      },
+      {
+        "command": "toudou.deleteTodo",
+        "title": "Toudou: Delete Todo"
+      },
+      {
+        "command": "toudou.addCategory",
+        "title": "Toudou: Create Category"
+      },
+      {
+        "command": "toudou.renameCategory",
+        "title": "Toudou: Rename Category"
+      },
+      {
+        "command": "toudou.deleteCategory",
+        "title": "Toudou: Delete Category"
+      },
+      {
+        "command": "toudou.restoreTodo",
+        "title": "Toudou: Restore from History"
+      },
+      {
+        "command": "toudou.purgeHistory",
+        "title": "Toudou: Purge History",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "toudou.completeTodoInline",
+        "title": "Complete",
+        "icon": "$(check)"
+      },
+      {
+        "command": "toudou.deleteTodoInline",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "toudou.editTodoTitle",
+        "title": "Edit Title"
+      },
+      {
+        "command": "toudou.editTodoDescription",
+        "title": "Edit Description"
+      },
+      {
+        "command": "toudou.changeTodoCategory",
+        "title": "Change Category"
+      },
+      {
+        "command": "toudou.renameCategoryInline",
+        "title": "Rename Category"
+      },
+      {
+        "command": "toudou.deleteCategoryInline",
+        "title": "Delete Category"
+      },
+      {
+        "command": "toudou.restoreTodoInline",
+        "title": "Restore",
+        "icon": "$(debug-restart)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "toudou.addTodo",
+          "when": "view == toudouView",
+          "group": "navigation"
+        },
+        {
+          "command": "toudou.purgeHistory",
+          "when": "view == toudouHistoryView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "toudou.completeTodoInline",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "inline@1"
+        },
+        {
+          "command": "toudou.deleteTodoInline",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "inline@2"
+        },
+        {
+          "command": "toudou.editTodoTitle",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "toudou.editTodoDescription",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "toudou.changeTodoCategory",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@3"
+        },
+        {
+          "command": "toudou.renameCategoryInline",
+          "when": "view == toudouView && viewItem == category",
+          "group": "1_category@1"
+        },
+        {
+          "command": "toudou.deleteCategoryInline",
+          "when": "view == toudouView && viewItem == category",
+          "group": "1_category@2"
+        },
+        {
+          "command": "toudou.restoreTodoInline",
+          "when": "view == toudouHistoryView && viewItem == completedTodo",
+          "group": "inline@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "toudou.completeTodoInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.deleteTodoInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.editTodoTitle",
+          "when": "false"
+        },
+        {
+          "command": "toudou.editTodoDescription",
+          "when": "false"
+        },
+        {
+          "command": "toudou.changeTodoCategory",
+          "when": "false"
+        },
+        {
+          "command": "toudou.renameCategoryInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.deleteCategoryInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.restoreTodoInline",
+          "when": "false"
+        }
+      ]
+    },
+    "languageModelTools": [
+      {
+        "name": "toudou_createTodo",
+        "displayName": "Create Todo",
+        "description": "Create a new todo in the workspace todo list",
+        "parametersSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "Title of the todo"
+            },
+            "category": {
+              "type": "string",
+              "description": "Category name (created if it doesn't exist, defaults to uncategorized)"
+            },
+            "description": {
+              "type": "string",
+              "description": "Optional description"
+            }
+          },
+          "required": [
+            "title"
+          ]
+        }
+      },
+      {
+        "name": "toudou_listTodos",
+        "displayName": "List Todos",
+        "description": "List active todos in the workspace",
+        "parametersSchema": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "description": "Filter by category name"
+            }
+          }
+        }
+      },
+      {
+        "name": "toudou_completeTodo",
+        "displayName": "Complete Todo",
+        "description": "Mark a todo as completed",
+        "parametersSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the todo"
+            },
+            "title": {
+              "type": "string",
+              "description": "Title of the todo (fuzzy search)"
+            }
+          }
+        }
+      },
+      {
+        "name": "toudou_deleteTodo",
+        "displayName": "Delete Todo",
+        "description": "Permanently delete a todo",
+        "parametersSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the todo"
+            },
+            "title": {
+              "type": "string",
+              "description": "Title of the todo (fuzzy search)"
+            }
+          }
+        }
+      },
+      {
+        "name": "toudou_createCategory",
+        "displayName": "Create Category",
+        "description": "Create a new todo category",
+        "parametersSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the category"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      },
+      {
+        "name": "toudou_renameCategory",
+        "displayName": "Rename Category",
+        "description": "Rename an existing category",
+        "parametersSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Current name of the category"
+            },
+            "newName": {
+              "type": "string",
+              "description": "New name for the category"
+            }
+          },
+          "required": [
+            "name",
+            "newName"
+          ]
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "npm run compile -- --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts'",
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "prepackage": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "package": "vsce package",
+    "install-local": "npm run package && code --install-extension $(ls -t *.vsix | head -1)"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.20.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

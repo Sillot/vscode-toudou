@@ -1,0 +1,9 @@
+.devcontainer/**
+.vscode/**
+src/**
+node_modules/**
+.gitignore
+tsconfig.json
+eslint.config.mjs
+.prettierrc
+*.vsix

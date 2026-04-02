@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compile",
+      "type": "shell",
+      "command": "npm run compile",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Watch",
+      "type": "shell",
+      "command": "npm run watch",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint",
+      "type": "shell",
+      "command": "npm run lint",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "Type Check",
+      "type": "shell",
+      "command": "npm run typecheck",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Install Extension",
+      "type": "shell",
+      "command": "npm run install-local",
+      "problemMatcher": []
+    },
+    {
+      "label": "Check All",
+      "type": "shell",
+      "command": "npm run check",
+      "problemMatcher": ["$tsc", "$eslint-stylish"]
+    }
+  ]
+}
