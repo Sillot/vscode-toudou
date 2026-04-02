@@ -3,12 +3,12 @@ import { Category } from '../models/category';
 import { Todo } from '../models/todo';
 import {
   getCategories,
-  getUncategorizedTodos,
+  getNextOrder,
   getTodosByCategory,
+  getUncategorizedTodos,
+  moveTodoToCategory,
   reorderCategories,
   reorderTodos,
-  moveTodoToCategory,
-  getNextOrder,
 } from '../services/storageService';
 
 const DRAG_MIME = 'application/vnd.code.tree.toudouView';

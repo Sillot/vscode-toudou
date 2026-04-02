@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
-import { Todo, CompletedTodo } from '../models/todo';
+import { CompletedTodo, Todo } from '../models/todo';
 
 const FILE_NAME = 'toudou.json';
 const LEGACY_STORAGE_KEY = 'toudou.todos';

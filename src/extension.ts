@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { createCategory } from './models/category';
-import { createTodo, Todo, CompletedTodo } from './models/todo';
-import { TodoProvider } from './providers/todoProvider';
+import { CompletedTodo, createTodo, Todo } from './models/todo';
 import { HistoryProvider } from './providers/historyProvider';
-import { registerTodoTools } from './tools/todoTools';
+import { TodoProvider } from './providers/todoProvider';
 import * as storage from './services/storageService';
+import { registerTodoTools } from './tools/todoTools';
 
 export function activate(context: vscode.ExtensionContext): void {
   const todoProvider = new TodoProvider();
@@ -91,6 +91,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.changeCategoryEmoji', (cat) =>
       changeCategoryEmoji(cat),
     ),
+    vscode.commands.registerCommand('toudou.addTodoToCategory', (cat: { id: string }) =>
+      addTodoToCategoryFlow(cat.id),
+    ),
     vscode.commands.registerCommand('toudou.restoreTodoInline', (completed: CompletedTodo) =>
       storage.restoreFromHistory(completed.id),
     ),
@@ -112,6 +115,24 @@ async function addTodoFlow(): Promise<void> {
 
   const categoryId = await pickOrCreateCategory();
   if (categoryId === null) return; // cancelled
+
+  const description = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t('Description (optional)'),
+    placeHolder: vscode.l10n.t('Press Enter to skip'),
+    ignoreFocusOut: true,
+  });
+
+  const order = storage.getNextOrder(categoryId);
+  await storage.addTodo(createTodo(title, categoryId, description || undefined, order));
+}
+
+async function addTodoToCategoryFlow(categoryId: string): Promise<void> {
+  const title = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t('Todo title'),
+    placeHolder: vscode.l10n.t('What needs to be done?'),
+    ignoreFocusOut: true,
+  });
+  if (!title) return;
 
   const description = await vscode.window.showInputBox({
     prompt: vscode.l10n.t('Description (optional)'),

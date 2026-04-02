@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { CompletedTodo } from '../models/todo';
-import { getHistory, getCategoryById } from '../services/storageService';
+import { getCategoryById, getHistory } from '../services/storageService';
 
 export class HistoryProvider implements vscode.TreeDataProvider<CompletedTodo> {
   private _onDidChangeTreeData = new vscode.EventEmitter<CompletedTodo | undefined>();
