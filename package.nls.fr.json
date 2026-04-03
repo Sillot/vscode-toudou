@@ -29,6 +29,7 @@
   "submenu.sortBy": "Trier par",
   "command.changeTodoPriority": "Changer la priorit\u00e9",
   "command.changeTodoPriorityInline": "Changer la priorit\u00e9",
+  "command.openInCopilot": "Ouvrir dans Copilot",
   "tools.createTodo.displayName": "Créer une tâche",
   "tools.createTodo.description": "Créer une nouvelle tâche dans la liste des tâches du workspace",
   "tools.listTodos.displayName": "Lister les tâches",

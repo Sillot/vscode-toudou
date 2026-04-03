@@ -151,6 +151,11 @@
       {
         "command": "toudou.changeTodoPriorityInline",
         "title": "%command.changeTodoPriorityInline%"
+      },
+      {
+        "command": "toudou.openInCopilot",
+        "title": "%command.openInCopilot%",
+        "icon": "$(copilot)"
       }
     ],
     "submenus": [
@@ -226,6 +231,11 @@
           "command": "toudou.changeTodoPriorityInline",
           "when": "view == toudouView && viewItem == todo",
           "group": "1_edit@4"
+        },
+        {
+          "command": "toudou.openInCopilot",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "3_copilot@1"
         },
         {
           "command": "toudou.copyTodoText",
@@ -305,6 +315,10 @@
         },
         {
           "command": "toudou.changeTodoPriorityInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.openInCopilot",
           "when": "false"
         },
         {

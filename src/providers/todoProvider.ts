@@ -224,6 +224,10 @@ export class TodoProvider
     item.contextValue = 'todo';
     item.checkboxState = vscode.TreeItemCheckboxState.Unchecked;
 
+    if (todo.inProgress) {
+      item.iconPath = new vscode.ThemeIcon('debug-start', new vscode.ThemeColor('charts.green'));
+    }
+
     const cat = todo.categoryId ? getCategoryById(todo.categoryId) : undefined;
     const tooltipParts = [todo.title];
     if (todo.priority) {

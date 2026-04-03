@@ -107,6 +107,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.changeTodoPriorityInline', (todo: Todo) =>
       changeTodoPriority(todo),
     ),
+    vscode.commands.registerCommand('toudou.openInCopilot', (todo: Todo) =>
+      openTodoInCopilot(todo),
+    ),
   );
 
   // --- AI Tools ---
@@ -466,6 +469,18 @@ async function changeTodoPriorityPalette(): Promise<void> {
   const todo = await pickTodo(vscode.l10n.t('Select a todo to change priority'));
   if (!todo) return;
   await changeTodoPriority(todo);
+}
+
+async function openTodoInCopilot(todo: Todo): Promise<void> {
+  await storage.setTodoInProgress(todo.id, true);
+
+  const parts = [`Task: ${todo.title}`];
+  if (todo.description) {
+    parts.push(`Description: ${todo.description}`);
+  }
+  const message = parts.join('\n');
+
+  await vscode.commands.executeCommand('workbench.action.chat.open', { query: message });
 }
 
 export function deactivate(): void {}

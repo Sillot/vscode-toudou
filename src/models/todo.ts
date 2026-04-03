@@ -14,6 +14,7 @@ export interface Todo {
   description: string | undefined;
   categoryId: string | undefined;
   priority: TodoPriority | undefined;
+  inProgress: boolean | undefined;
   order: number;
   createdAt: string;
 }
@@ -41,6 +42,7 @@ export function createTodo(
     description,
     categoryId,
     priority,
+    inProgress: undefined,
     order,
     createdAt: new Date().toISOString(),
   };
@@ -69,6 +71,7 @@ export function restoreTodo(
     description: completed.description,
     categoryId,
     priority: completed.priority,
+    inProgress: undefined,
     order,
     createdAt: completed.createdAt,
   };

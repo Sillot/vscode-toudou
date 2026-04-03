@@ -87,6 +87,7 @@ async function migrateLegacy(context: vscode.ExtensionContext): Promise<void> {
         description: undefined,
         categoryId: undefined,
         priority: undefined,
+        inProgress: undefined,
         order: i,
         createdAt: new Date().toISOString(),
       });
@@ -270,6 +271,7 @@ export async function restoreFromHistory(id: string): Promise<void> {
     description: completed.description,
     categoryId,
     priority: completed.priority,
+    inProgress: undefined,
     order,
     createdAt: completed.createdAt,
   });
@@ -306,5 +308,14 @@ export async function setTodoPriority(
   const todo = data.todos.find((t) => t.id === id);
   if (!todo) return;
   todo.priority = priority;
+  await save();
+}
+
+// --- In Progress ---
+
+export async function setTodoInProgress(id: string, inProgress: boolean): Promise<void> {
+  const todo = data.todos.find((t) => t.id === id);
+  if (!todo) return;
+  todo.inProgress = inProgress || undefined;
   await save();
 }

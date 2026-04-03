@@ -29,6 +29,7 @@
   "submenu.sortBy": "Sort by",
   "command.changeTodoPriority": "Change Priority",
   "command.changeTodoPriorityInline": "Change Priority",
+  "command.openInCopilot": "Open in Copilot",
   "tools.createTodo.displayName": "Create Todo",
   "tools.createTodo.description": "Create a new todo in the workspace todo list",
   "tools.listTodos.displayName": "List Todos",
