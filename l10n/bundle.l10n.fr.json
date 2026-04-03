@@ -32,5 +32,13 @@
   "Rename category": "Renommer la catégorie",
   "Category \"{0}\" already exists.": "La catégorie « {0} » existe déjà.",
   "Category: {0}": "Catégorie : {0}",
-  "Completed: {0}": "Terminé : {0}"
+  "Completed: {0}": "Terminé : {0}",
+  "Manual": "Manuel",
+  "Priority": "Priorité",
+  "Category": "Catégorie",
+  "Category + Priority": "Catégorie + Priorité",
+  "(current)": "(actuel)",
+  "Select sort mode": "Sélectionner le mode de tri",
+  "Select priority for \"{0}\"": "Sélectionner la priorité pour « {0} »",
+  "Select a todo to change priority": "Sélectionner une tâche pour changer la priorité"
 }

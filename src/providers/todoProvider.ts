@@ -1,19 +1,36 @@
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
-import { Todo } from '../models/todo';
+import { NO_PRIORITY_ORDER, PRIORITY_ORDER, Todo, TodoPriority } from '../models/todo';
+import type { SortMode } from '../services/storageService';
 import {
-  getCategories,
-  getNextOrder,
-  getTodosByCategory,
-  getUncategorizedTodos,
-  moveTodoToCategory,
-  reorderCategories,
-  reorderTodos,
+    getCategories,
+    getCategoryById,
+    getNextOrder,
+    getSortMode,
+    getTodos,
+    getTodosByCategory,
+    getUncategorizedTodos,
+    moveTodoToCategory,
+    reorderCategories,
+    reorderTodos,
 } from '../services/storageService';
 
 const DRAG_MIME = 'application/vnd.code.tree.toudouView';
 
 type TreeNode = Category | Todo;
+
+const PRIORITY_ICONS: Record<TodoPriority, string> = {
+  high: '⬆ High',
+  medium: '— Medium',
+  low: '⬇ Low',
+};
+
+function priorityCompare(a: Todo, b: Todo): number {
+  const pa = a.priority ? PRIORITY_ORDER[a.priority] : NO_PRIORITY_ORDER;
+  const pb = b.priority ? PRIORITY_ORDER[b.priority] : NO_PRIORITY_ORDER;
+  if (pa !== pb) return pa - pb;
+  return a.order - b.order;
+}
 
 function isCategory(node: TreeNode): node is Category {
   return 'name' in node && !('title' in node);
@@ -44,16 +61,37 @@ export class TodoProvider
   }
 
   getChildren(element?: TreeNode): TreeNode[] {
+    const sortMode = getSortMode();
+
     if (!element) {
-      // Root: uncategorized todos first, then categories
-      const uncategorized = getUncategorizedTodos();
-      const categories = getCategories();
-      return [...uncategorized, ...categories];
+      return this.getRootChildren(sortMode);
     }
     if (isCategory(element)) {
-      return getTodosByCategory(element.id);
+      return this.getCategoryChildren(element.id, sortMode);
     }
     return [];
+  }
+
+  private getRootChildren(sortMode: SortMode): TreeNode[] {
+    if (sortMode === 'priority') {
+      // Flat list of all todos sorted by priority
+      return [...getTodos()].sort(priorityCompare);
+    }
+    // manual, category, categoryPriority: uncategorized todos first, then categories
+    const uncategorized = getUncategorizedTodos();
+    const categories = getCategories();
+    if (sortMode === 'categoryPriority') {
+      return ([...uncategorized].sort(priorityCompare) as TreeNode[]).concat(categories);
+    }
+    return [...uncategorized, ...categories];
+  }
+
+  private getCategoryChildren(categoryId: string, sortMode: SortMode): Todo[] {
+    const todos = getTodosByCategory(categoryId);
+    if (sortMode === 'categoryPriority') {
+      return [...todos].sort(priorityCompare);
+    }
+    return todos;
   }
 
   getParent(element: TreeNode): TreeNode | undefined {
@@ -185,7 +223,34 @@ export class TodoProvider
     const item = new vscode.TreeItem(todo.title, vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'todo';
     item.checkboxState = vscode.TreeItemCheckboxState.Unchecked;
-    item.tooltip = todo.description ? `${todo.title}\n${todo.description}` : todo.title;
+
+    const cat = todo.categoryId ? getCategoryById(todo.categoryId) : undefined;
+    const tooltipParts = [todo.title];
+    if (todo.priority) {
+      tooltipParts.push(vscode.l10n.t('Priority: {0}', PRIORITY_ICONS[todo.priority]));
+    }
+    if (cat) {
+      const catLabel = cat.emoji ? `${cat.emoji} ${cat.name}` : cat.name;
+      tooltipParts.push(vscode.l10n.t('Category: {0}', catLabel));
+    }
+    if (todo.description) {
+      tooltipParts.push('', todo.description);
+    }
+    item.tooltip = tooltipParts.join('\n');
+
+    const sortMode = getSortMode();
+    if (sortMode === 'priority') {
+      // Show category name as description
+      if (cat) {
+        item.description = cat.emoji ? `${cat.emoji} ${cat.name}` : cat.name;
+      }
+    } else {
+      // Show priority as description
+      if (todo.priority) {
+        item.description = PRIORITY_ICONS[todo.priority];
+      }
+    }
+
     return item;
   }
 }

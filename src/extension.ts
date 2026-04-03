@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { createCategory } from './models/category';
-import { CompletedTodo, createTodo, Todo } from './models/todo';
+import { CompletedTodo, createTodo, Todo, TodoPriority } from './models/todo';
 import { HistoryProvider } from './providers/historyProvider';
 import { TodoProvider } from './providers/todoProvider';
 import * as storage from './services/storageService';
@@ -96,6 +96,16 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('toudou.restoreTodoInline', (completed: CompletedTodo) =>
       storage.restoreFromHistory(completed.id),
+    ),
+    vscode.commands.registerCommand('toudou.sortByManual', () => storage.setSortMode('manual')),
+    vscode.commands.registerCommand('toudou.sortByPriority', () => storage.setSortMode('priority')),
+    vscode.commands.registerCommand('toudou.sortByCategory', () => storage.setSortMode('category')),
+    vscode.commands.registerCommand('toudou.sortByCategoryPriority', () =>
+      storage.setSortMode('categoryPriority'),
+    ),
+    vscode.commands.registerCommand('toudou.changeTodoPriority', () => changeTodoPriorityPalette()),
+    vscode.commands.registerCommand('toudou.changeTodoPriorityInline', (todo: Todo) =>
+      changeTodoPriority(todo),
     ),
   );
 
@@ -427,6 +437,35 @@ async function changeCategoryEmoji(cat: { id: string }): Promise<void> {
 
   const emoji = pick.label.startsWith('$(close)') ? undefined : pick.label;
   await storage.updateCategoryEmoji(cat.id, emoji);
+}
+
+const PRIORITY_PICK_LABELS: { label: string; priority: TodoPriority | undefined }[] = [
+  { label: '⬆ High', priority: 'high' },
+  { label: '● Medium', priority: 'medium' },
+  { label: '⬇ Low', priority: 'low' },
+  { label: '$(close) None', priority: undefined },
+];
+
+async function changeTodoPriority(todo: Todo): Promise<void> {
+  const items = PRIORITY_PICK_LABELS.map((p) => ({
+    label: p.label,
+    description: todo.priority === p.priority ? vscode.l10n.t('(current)') : undefined,
+    priority: p.priority,
+  }));
+
+  const pick = await vscode.window.showQuickPick(items, {
+    placeHolder: vscode.l10n.t('Select priority for "{0}"', todo.title),
+    ignoreFocusOut: true,
+  });
+  if (!pick) return;
+
+  await storage.setTodoPriority(todo.id, pick.priority);
+}
+
+async function changeTodoPriorityPalette(): Promise<void> {
+  const todo = await pickTodo(vscode.l10n.t('Select a todo to change priority'));
+  if (!todo) return;
+  await changeTodoPriority(todo);
 }
 
 export function deactivate(): void {}

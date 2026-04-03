@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
-import { CompletedTodo, Todo } from '../models/todo';
+import { CompletedTodo, Todo, TodoPriority } from '../models/todo';
+
+export type SortMode = 'manual' | 'priority' | 'category' | 'categoryPriority';
 
 const FILE_NAME = 'toudou.json';
 const LEGACY_STORAGE_KEY = 'toudou.todos';
@@ -9,6 +11,7 @@ interface StorageData {
   categories: Category[];
   todos: Todo[];
   history: CompletedTodo[];
+  sortMode?: SortMode;
 }
 
 interface LegacyTodo {
@@ -73,6 +76,7 @@ async function migrateLegacy(context: vscode.ExtensionContext): Promise<void> {
         title: legacy.label,
         description: undefined,
         categoryId: undefined,
+        priority: undefined,
         createdAt: new Date().toISOString(),
         completedAt: new Date().toISOString(),
       });
@@ -82,6 +86,7 @@ async function migrateLegacy(context: vscode.ExtensionContext): Promise<void> {
         title: legacy.label,
         description: undefined,
         categoryId: undefined,
+        priority: undefined,
         order: i,
         createdAt: new Date().toISOString(),
       });
@@ -187,7 +192,7 @@ export async function addTodo(todo: Todo): Promise<void> {
 
 export async function updateTodo(
   id: string,
-  updates: Partial<Pick<Todo, 'title' | 'description' | 'categoryId' | 'order'>>,
+  updates: Partial<Pick<Todo, 'title' | 'description' | 'categoryId' | 'order' | 'priority'>>,
 ): Promise<void> {
   const todo = data.todos.find((t) => t.id === id);
   if (!todo) return;
@@ -209,6 +214,7 @@ export async function completeTodoById(id: string): Promise<void> {
     title: todo.title,
     description: todo.description,
     categoryId: todo.categoryId,
+    priority: todo.priority,
     createdAt: todo.createdAt,
     completedAt: new Date().toISOString(),
   });
@@ -263,6 +269,7 @@ export async function restoreFromHistory(id: string): Promise<void> {
     title: completed.title,
     description: completed.description,
     categoryId,
+    priority: completed.priority,
     order,
     createdAt: completed.createdAt,
   });
@@ -277,4 +284,27 @@ export async function purgeHistory(): Promise<void> {
 export function getNextOrder(categoryId: string | undefined): number {
   const todos = categoryId === undefined ? getUncategorizedTodos() : getTodosByCategory(categoryId);
   return todos.length > 0 ? Math.max(...todos.map((t) => t.order)) + 1 : 0;
+}
+
+// --- Sort Mode ---
+
+export function getSortMode(): SortMode {
+  return data.sortMode ?? 'manual';
+}
+
+export async function setSortMode(mode: SortMode): Promise<void> {
+  data.sortMode = mode;
+  await save();
+}
+
+// --- Priority ---
+
+export async function setTodoPriority(
+  id: string,
+  priority: TodoPriority | undefined,
+): Promise<void> {
+  const todo = data.todos.find((t) => t.id === id);
+  if (!todo) return;
+  todo.priority = priority;
+  await save();
 }

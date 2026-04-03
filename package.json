@@ -126,6 +126,38 @@
         "command": "toudou.restoreTodoInline",
         "title": "%command.restoreTodoInline%",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "toudou.sortByManual",
+        "title": "%command.sortByManual%"
+      },
+      {
+        "command": "toudou.sortByPriority",
+        "title": "%command.sortByPriority%"
+      },
+      {
+        "command": "toudou.sortByCategory",
+        "title": "%command.sortByCategory%"
+      },
+      {
+        "command": "toudou.sortByCategoryPriority",
+        "title": "%command.sortByCategoryPriority%"
+      },
+      {
+        "command": "toudou.changeTodoPriority",
+        "title": "%command.changeTodoPriority%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.changeTodoPriorityInline",
+        "title": "%command.changeTodoPriorityInline%"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "toudou.sortMenu",
+        "label": "%submenu.sortBy%",
+        "icon": "$(list-ordered)"
       }
     ],
     "menus": {
@@ -141,9 +173,32 @@
           "group": "navigation"
         },
         {
+          "submenu": "toudou.sortMenu",
+          "when": "view == toudouView",
+          "group": "navigation"
+        },
+        {
           "command": "toudou.purgeHistory",
           "when": "view == toudouHistoryView",
           "group": "navigation"
+        }
+      ],
+      "toudou.sortMenu": [
+        {
+          "command": "toudou.sortByManual",
+          "group": "sort@1"
+        },
+        {
+          "command": "toudou.sortByPriority",
+          "group": "sort@2"
+        },
+        {
+          "command": "toudou.sortByCategory",
+          "group": "sort@3"
+        },
+        {
+          "command": "toudou.sortByCategoryPriority",
+          "group": "sort@4"
         }
       ],
       "view/item/context": [
@@ -166,6 +221,11 @@
           "command": "toudou.changeTodoCategory",
           "when": "view == toudouView && viewItem == todo",
           "group": "1_edit@3"
+        },
+        {
+          "command": "toudou.changeTodoPriorityInline",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@4"
         },
         {
           "command": "toudou.copyTodoText",
@@ -241,6 +301,26 @@
         },
         {
           "command": "toudou.restoreTodoInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.changeTodoPriorityInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.sortByManual",
+          "when": "false"
+        },
+        {
+          "command": "toudou.sortByPriority",
+          "when": "false"
+        },
+        {
+          "command": "toudou.sortByCategory",
+          "when": "false"
+        },
+        {
+          "command": "toudou.sortByCategoryPriority",
           "when": "false"
         }
       ]
