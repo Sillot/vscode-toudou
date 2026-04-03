@@ -4,7 +4,6 @@ import { CompletedTodo, Todo, TodoPriority } from '../models/todo';
 
 export type SortMode = 'manual' | 'priority' | 'category' | 'categoryPriority';
 
-const FILE_NAME = 'toudou.json';
 const LEGACY_STORAGE_KEY = 'toudou.todos';
 
 interface StorageData {
@@ -29,30 +28,76 @@ function defaultData(): StorageData {
 }
 
 let storageUri: vscode.Uri | undefined;
+let resolvedFileUri: vscode.Uri | undefined;
 let data: StorageData = defaultData();
 let onDidChange: (() => void) | undefined;
 
 function fileUri(): vscode.Uri {
-  if (!storageUri) {
+  if (!resolvedFileUri) {
     throw new Error('StorageService not initialized');
   }
-  return vscode.Uri.joinPath(storageUri, FILE_NAME);
+  return resolvedFileUri;
+}
+
+export function getStorageFileUri(): vscode.Uri | undefined {
+  return resolvedFileUri;
+}
+
+function getWorkspaceName(): string {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) return 'default';
+  return folders[0].name.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+}
+
+function isAbsolutePath(p: string): boolean {
+  return p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p);
+}
+
+function resolveCustomPath(customPath: string): vscode.Uri | undefined {
+  const resolved = customPath.replace(/\{workspace\}/g, getWorkspaceName());
+
+  if (isAbsolutePath(resolved)) {
+    return vscode.Uri.file(resolved);
+  }
+
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) return undefined;
+  return vscode.Uri.joinPath(workspaceFolders[0].uri, resolved);
+}
+
+let extensionContext: vscode.ExtensionContext | undefined;
+
+function resolveFileUri(context: vscode.ExtensionContext): vscode.Uri | undefined {
+  const workspaceOverride = context.workspaceState.get<string>('storagePath');
+  const config = vscode.workspace.getConfiguration('toudou');
+  const customPath = workspaceOverride || config.get<string>('defaultStoragePath');
+
+  if (customPath) {
+    return resolveCustomPath(customPath);
+  }
+
+  if (context.storageUri) {
+    return vscode.Uri.joinPath(context.storageUri, `toudou-${getWorkspaceName()}.json`);
+  }
+  return undefined;
 }
 
 export async function initStorage(
   context: vscode.ExtensionContext,
   changeCallback: () => void,
 ): Promise<void> {
-  storageUri = context.storageUri;
+  resolvedFileUri = resolveFileUri(context);
+  storageUri = resolvedFileUri ? vscode.Uri.joinPath(resolvedFileUri, '..') : undefined;
+  extensionContext = context;
   onDidChange = changeCallback;
 
-  if (!storageUri) {
+  if (!resolvedFileUri) {
     data = defaultData();
     return;
   }
 
   // Ensure the storage directory exists
-  await vscode.workspace.fs.createDirectory(storageUri);
+  await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(resolvedFileUri, '..'));
 
   try {
     const content = await vscode.workspace.fs.readFile(fileUri());
@@ -318,4 +363,17 @@ export async function setTodoInProgress(id: string, inProgress: boolean): Promis
   if (!todo) return;
   todo.inProgress = inProgress || undefined;
   await save();
+}
+
+// --- Workspace Storage Path ---
+
+export function getWorkspaceStoragePath(): string | undefined {
+  return extensionContext?.workspaceState.get<string>('storagePath');
+}
+
+export async function setWorkspaceStoragePath(path: string | undefined): Promise<void> {
+  if (!extensionContext) return;
+  await extensionContext.workspaceState.update('storagePath', path || undefined);
+  await initStorage(extensionContext, onDidChange ?? (() => {}));
+  onDidChange?.();
 }

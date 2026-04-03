@@ -1,5 +1,6 @@
 {
   "description": "Une liste de tâches simple dans la barre latérale de VS Code",
+  "config.defaultStoragePath.description": "Chemin par défaut vers le fichier de stockage pour tous les workspaces (relatif à la racine, ex: `.vscode/toudou-{workspace}.json`). Utilisez `{workspace}` comme placeholder pour le nom du workspace. Peut être surchargé par workspace avec [Définir le chemin de stockage du workspace](command:toudou.setWorkspacePath).",
   "viewsContainers.toudou.title": "Toudou",
   "views.todos.name": "Tâches",
   "views.history.name": "Historique",
@@ -30,6 +31,9 @@
   "command.changeTodoPriority": "Changer la priorit\u00e9",
   "command.changeTodoPriorityInline": "Changer la priorit\u00e9",
   "command.openInCopilot": "Ouvrir dans Copilot",
+  "command.openSettings": "Param\u00e8tres",
+  "command.openStorageFile": "Ouvrir le fichier de stockage",
+  "command.setWorkspacePath": "Définir le chemin de stockage du workspace",
   "tools.createTodo.displayName": "Créer une tâche",
   "tools.createTodo.description": "Créer une nouvelle tâche dans la liste des tâches du workspace",
   "tools.listTodos.displayName": "Lister les tâches",

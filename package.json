@@ -5,7 +5,7 @@
   "version": "0.0.1",
   "publisher": "quentin",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Other"
@@ -14,6 +14,17 @@
   "l10n": "./l10n",
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Toudou",
+      "properties": {
+        "toudou.defaultStoragePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.defaultStoragePath.description%",
+          "scope": "window"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -156,6 +167,21 @@
         "command": "toudou.openInCopilot",
         "title": "%command.openInCopilot%",
         "icon": "$(copilot)"
+      },
+      {
+        "command": "toudou.openSettings",
+        "title": "%command.openSettings%",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "toudou.openStorageFile",
+        "title": "%command.openStorageFile%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.setWorkspacePath",
+        "title": "%command.setWorkspacePath%",
+        "category": "Toudou"
       }
     ],
     "submenus": [
@@ -170,17 +196,22 @@
         {
           "command": "toudou.addTodo",
           "when": "view == toudouView",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "toudou.addCategory",
           "when": "view == toudouView",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "submenu": "toudou.sortMenu",
           "when": "view == toudouView",
-          "group": "navigation"
+          "group": "navigation@3"
+        },
+        {
+          "command": "toudou.openSettings",
+          "when": "view == toudouView",
+          "group": "navigation@4"
         },
         {
           "command": "toudou.purgeHistory",

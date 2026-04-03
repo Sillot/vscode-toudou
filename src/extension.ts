@@ -20,6 +20,17 @@ export function activate(context: vscode.ExtensionContext): void {
     refreshAll();
   });
 
+  // Re-init storage when settings change
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('toudou.defaultStoragePath')) {
+        storage.initStorage(context, refreshAll).then(() => {
+          refreshAll();
+        });
+      }
+    }),
+  );
+
   const todoTreeView = vscode.window.createTreeView('toudouView', {
     treeDataProvider: todoProvider,
     dragAndDropController: todoProvider,
@@ -109,6 +120,18 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('toudou.openInCopilot', (todo: Todo) =>
       openTodoInCopilot(todo),
+    ),
+    vscode.commands.registerCommand('toudou.openSettings', () =>
+      vscode.commands.executeCommand('workbench.action.openSettings', '@ext:quentin.toudou'),
+    ),
+    vscode.commands.registerCommand('toudou.openStorageFile', () => {
+      const uri = storage.getStorageFileUri();
+      if (uri) {
+        vscode.window.showTextDocument(uri);
+      }
+    }),
+    vscode.commands.registerCommand('toudou.setWorkspacePath', () =>
+      setWorkspacePathFlow(refreshAll),
     ),
   );
 
@@ -481,6 +504,21 @@ async function openTodoInCopilot(todo: Todo): Promise<void> {
   const message = parts.join('\n');
 
   await vscode.commands.executeCommand('workbench.action.chat.open', { query: message });
+}
+
+async function setWorkspacePathFlow(refreshAll: () => void): Promise<void> {
+  const current = storage.getWorkspaceStoragePath();
+
+  const newPath = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t('Storage file path for this workspace (absolute or relative to workspace root)'),
+    placeHolder: vscode.l10n.t('e.g. .vscode/toudou.json or leave empty to reset'),
+    value: current ?? '',
+    ignoreFocusOut: true,
+  });
+  if (newPath === undefined) return; // cancelled
+
+  await storage.setWorkspaceStoragePath(newPath || undefined);
+  refreshAll();
 }
 
 export function deactivate(): void {}

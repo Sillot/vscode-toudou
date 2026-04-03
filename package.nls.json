@@ -1,5 +1,6 @@
 {
   "description": "A simple todo list in the VS Code sidebar",
+  "config.defaultStoragePath.description": "Default path to the storage file for all workspaces (relative to workspace root, e.g. `.vscode/toudou-{workspace}.json`). Use `{workspace}` as a placeholder for the workspace name. Can be overridden per workspace with [Set Workspace Storage Path](command:toudou.setWorkspacePath).",
   "viewsContainers.toudou.title": "Toudou",
   "views.todos.name": "Todos",
   "views.history.name": "History",
@@ -30,6 +31,9 @@
   "command.changeTodoPriority": "Change Priority",
   "command.changeTodoPriorityInline": "Change Priority",
   "command.openInCopilot": "Open in Copilot",
+  "command.openSettings": "Settings",
+  "command.openStorageFile": "Open Storage File",
+  "command.setWorkspacePath": "Set Workspace Storage Path",
   "tools.createTodo.displayName": "Create Todo",
   "tools.createTodo.description": "Create a new todo in the workspace todo list",
   "tools.listTodos.displayName": "List Todos",
