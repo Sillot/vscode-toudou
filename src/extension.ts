@@ -145,14 +145,18 @@ async function addTodoToCategoryFlow(categoryId: string): Promise<void> {
 }
 
 async function pickOrCreateCategory(): Promise<string | undefined | null> {
+  interface CategoryPickItem extends vscode.QuickPickItem {
+    categoryId?: string;
+  }
+
   const categories = storage.getCategories();
-  const items: vscode.QuickPickItem[] = [
+  const items: CategoryPickItem[] = [
     { label: vscode.l10n.t('No category'), description: vscode.l10n.t('Add to top-level') },
     {
       label: vscode.l10n.t('$(add) New category...'),
       description: vscode.l10n.t('Create a new category'),
     },
-    ...categories.map((c) => ({ label: c.name, description: c.id })),
+    ...categories.map((c) => ({ label: c.name, categoryId: c.id })),
   ];
 
   const pick = await vscode.window.showQuickPick(items, {
@@ -182,7 +186,7 @@ async function pickOrCreateCategory(): Promise<string | undefined | null> {
     return cat.id;
   }
 
-  return pick.description;
+  return pick.categoryId;
 }
 
 async function completeTodoPalette(): Promise<void> {
