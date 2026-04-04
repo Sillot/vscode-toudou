@@ -81,8 +81,12 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand(
       'toudou.deleteTodoInline',
-      async (todo: Todo, selected?: Todo[]) => {
-        const todos = selected?.length ? selected : [todo];
+      async (todo?: Todo, selected?: Todo[]) => {
+        const todos = selected?.length
+          ? selected
+          : todo
+            ? [todo]
+            : todoTreeView.selection.filter((s): s is Todo => 'title' in s);
         for (const t of todos) {
           await storage.deleteTodo(t.id);
         }
@@ -160,6 +164,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.setWorkspacePath', () =>
       setWorkspacePathFlow(refreshAll),
     ),
+    vscode.commands.registerCommand('toudou.deleteSelected', async () => {
+      const selection = todoTreeView.selection;
+      for (const item of selection) {
+        if ('title' in item) {
+          await storage.deleteTodo((item as Todo).id);
+        } else if ('name' in item) {
+          await storage.deleteCategory((item as { id: string }).id);
+        }
+      }
+    }),
+    vscode.commands.registerCommand('toudou.clickTodo', (todo: Todo) => handleTodoClick(todo)),
   );
 
   // --- AI Tools ---
@@ -572,6 +587,24 @@ async function setWorkspacePathFlow(refreshAll: () => void): Promise<void> {
 
   await storage.setWorkspaceStoragePath(newPath || undefined);
   refreshAll();
+}
+
+// --- Double-click detection ---
+
+let lastClickedTodoId: string | undefined;
+let lastClickTime = 0;
+const DOUBLE_CLICK_THRESHOLD = 400;
+
+function handleTodoClick(todo: Todo): void {
+  const now = Date.now();
+  if (lastClickedTodoId === todo.id && now - lastClickTime < DOUBLE_CLICK_THRESHOLD) {
+    lastClickedTodoId = undefined;
+    lastClickTime = 0;
+    editTodoTitle(todo);
+  } else {
+    lastClickedTodoId = todo.id;
+    lastClickTime = now;
+  }
 }
 
 export function deactivate(): void {}

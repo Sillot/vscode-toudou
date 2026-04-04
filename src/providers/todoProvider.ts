@@ -223,6 +223,11 @@ export class TodoProvider
     const item = new vscode.TreeItem(todo.title, vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'todo';
     item.checkboxState = vscode.TreeItemCheckboxState.Unchecked;
+    item.command = {
+      command: 'toudou.clickTodo',
+      title: '',
+      arguments: [todo],
+    };
 
     if (todo.inProgress) {
       item.iconPath = new vscode.ThemeIcon('debug-start', new vscode.ThemeColor('charts.green'));

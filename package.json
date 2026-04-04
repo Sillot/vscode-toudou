@@ -182,6 +182,14 @@
         "command": "toudou.setWorkspacePath",
         "title": "%command.setWorkspacePath%",
         "category": "Toudou"
+      },
+      {
+        "command": "toudou.clickTodo",
+        "title": "Click Todo"
+      },
+      {
+        "command": "toudou.deleteSelected",
+        "title": "Delete Selected"
       }
     ],
     "submenus": [
@@ -353,6 +361,14 @@
           "when": "false"
         },
         {
+          "command": "toudou.clickTodo",
+          "when": "false"
+        },
+        {
+          "command": "toudou.deleteSelected",
+          "when": "false"
+        },
+        {
           "command": "toudou.sortByManual",
           "when": "false"
         },
@@ -375,6 +391,12 @@
         "command": "toudou.copyTodoText",
         "key": "ctrl+c",
         "mac": "cmd+c",
+        "when": "focusedView == toudouView"
+      },
+      {
+        "command": "toudou.deleteSelected",
+        "key": "delete",
+        "mac": "delete",
         "when": "focusedView == toudouView"
       }
     ],
