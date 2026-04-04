@@ -145,8 +145,8 @@ export function activate(context: vscode.ExtensionContext): void {
       'toudou.changeTodoPriorityInline',
       (todo: Todo, selected?: Todo[]) => changeTodoPriority(todo, selected),
     ),
-    vscode.commands.registerCommand('toudou.openInCopilot', (todo: Todo) =>
-      openTodoInCopilot(todo),
+    vscode.commands.registerCommand('toudou.openInCopilot', (todo: Todo, selected?: Todo[]) =>
+      openTodoInCopilot(todo, selected),
     ),
     vscode.commands.registerCommand('toudou.openSettings', () =>
       vscode.commands.executeCommand('workbench.action.openSettings', '@ext:quentin.toudou'),
@@ -535,14 +535,24 @@ async function changeTodoPriorityPalette(): Promise<void> {
   await changeTodoPriority(todo);
 }
 
-async function openTodoInCopilot(todo: Todo): Promise<void> {
-  await storage.setTodoInProgress(todo.id, true);
+async function openTodoInCopilot(todo: Todo, selected?: Todo[]): Promise<void> {
+  const todos = selected?.length ? selected : [todo];
 
-  const parts = [`Task: ${todo.title}`];
-  if (todo.description) {
-    parts.push(`Description: ${todo.description}`);
+  for (const t of todos) {
+    if (!t.inProgress) {
+      await storage.setTodoInProgress(t.id, true);
+    }
   }
-  const message = parts.join('\n');
+
+  const message = todos
+    .map((t) => {
+      const parts = [`Task: ${t.title}`];
+      if (t.description) {
+        parts.push(`Description: ${t.description}`);
+      }
+      return parts.join('\n');
+    })
+    .join('\n\n');
 
   await vscode.commands.executeCommand('workbench.action.chat.open', { query: message });
 }
