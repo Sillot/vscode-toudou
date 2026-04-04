@@ -75,3 +75,4 @@ docker run -d --name toudou-dev \
 - Tester les commandes manuellement via F5 (Extension Development Host).
 - Ne jamais écrire dans le repo de l'utilisateur. Toutes les données vont dans `context.storageUri`.
 - Les modifications du `package.json` (commandes, menus, vues) doivent rester synchronisées avec les specs.
+- **Après toute modification de code** (ajout/suppression de commandes, types, tools, menus, etc.), proposer de lancer `/sync-specs` pour mettre à jour les specs.

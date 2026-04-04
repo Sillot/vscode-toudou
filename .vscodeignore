@@ -7,3 +7,4 @@ tsconfig.json
 eslint.config.mjs
 .prettierrc
 *.vsix
+**/*.map

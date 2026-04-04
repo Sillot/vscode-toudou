@@ -11,6 +11,7 @@ L'extension expose des **Language Model Tools** (API `vscode.lm.registerTool`) q
 Crée une nouvelle todo.
 
 **Paramètres :**
+
 | Param | Type | Requis | Description |
 |-------|------|--------|-------------|
 | `title` | `string` | ✅ | Titre de la todo |
@@ -24,6 +25,7 @@ Crée une nouvelle todo.
 Liste les todos actives.
 
 **Paramètres :**
+
 | Param | Type | Requis | Description |
 |-------|------|--------|-------------|
 | `category` | `string` | ❌ | Filtrer par nom de catégorie |
@@ -35,6 +37,7 @@ Liste les todos actives.
 Marque une todo comme complétée.
 
 **Paramètres :**
+
 | Param | Type | Requis | Description |
 |-------|------|--------|-------------|
 | `id` | `string` | ✅* | ID de la todo |
@@ -49,6 +52,7 @@ Marque une todo comme complétée.
 Supprime définitivement une todo.
 
 **Paramètres :**
+
 | Param | Type | Requis | Description |
 |-------|------|--------|-------------|
 | `id` | `string` | ✅* | ID de la todo |
@@ -63,6 +67,7 @@ Supprime définitivement une todo.
 Crée une nouvelle catégorie.
 
 **Paramètres :**
+
 | Param | Type | Requis | Description |
 |-------|------|--------|-------------|
 | `name` | `string` | ✅ | Nom de la catégorie |
@@ -74,6 +79,7 @@ Crée une nouvelle catégorie.
 Renomme une catégorie existante.
 
 **Paramètres :**
+
 | Param | Type | Requis | Description |
 |-------|------|--------|-------------|
 | `name` | `string` | ✅ | Nom actuel de la catégorie |
@@ -85,6 +91,18 @@ Renomme une catégorie existante.
 
 - Si l'agent demande de créer une todo dans une catégorie inexistante, la catégorie est créée automatiquement.
 - Si aucune catégorie n'est spécifiée, la todo est créée sans catégorie (en haut du TreeView).
-- La recherche par titre est insensible à la casse et tolère des différences mineures (fuzzy matching basique).
+- La recherche par titre est insensible à la casse et utilise un match partiel (`includes`).
 - Toutes les opérations rafraîchissent la TreeView automatiquement.
 - Les tools ne demandent pas de confirmation utilisateur (l'agent est responsable de la validation).
+
+## Validation des entrées
+
+Toutes les entrées textuelles sont validées côté tool avant traitement. Une erreur est retournée si la valeur est vide (quand requise) ou dépasse la limite.
+
+| Constante | Valeur | Applicable à |
+|-----------|--------|-------------|
+| `MAX_TITLE_LENGTH` | 500 | `title` (createTodo, completeTodo, deleteTodo) |
+| `MAX_DESCRIPTION_LENGTH` | 2000 | `description` (createTodo) |
+| `MAX_CATEGORY_LENGTH` | 100 | `category` / `name` / `newName` (tous les tools avec catégorie) |
+
+Les mêmes limites sont déclarées en `maxLength` dans les `parametersSchema` du `package.json` pour validation côté VS Code.

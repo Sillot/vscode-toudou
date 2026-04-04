@@ -1,7 +1,31 @@
 import * as vscode from 'vscode';
-import { createTodo } from '../models/todo';
 import { createCategory } from '../models/category';
+import { createTodo } from '../models/todo';
 import * as storage from '../services/storageService';
+
+const MAX_TITLE_LENGTH = 500;
+const MAX_DESCRIPTION_LENGTH = 2000;
+const MAX_CATEGORY_LENGTH = 100;
+
+function errorResult(message: string): vscode.LanguageModelToolResult {
+  return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(message)]);
+}
+
+function validateString(
+  value: string | undefined,
+  label: string,
+  maxLength: number,
+  required = true,
+): string | undefined {
+  if (!value || value.trim().length === 0) {
+    if (required) return `${label} is required and cannot be empty.`;
+    return undefined;
+  }
+  if (value.length > maxLength) {
+    return `${label} is too long (max ${maxLength} characters).`;
+  }
+  return undefined;
+}
 
 export function registerTodoTools(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
@@ -28,6 +52,13 @@ class CreateTodoTool implements vscode.LanguageModelTool<CreateTodoParams> {
     _token: vscode.CancellationToken,
   ): Promise<vscode.LanguageModelToolResult> {
     const { title, category, description } = options.input;
+
+    const titleErr = validateString(title, 'Title', MAX_TITLE_LENGTH);
+    if (titleErr) return errorResult(titleErr);
+    const catErr = validateString(category, 'Category', MAX_CATEGORY_LENGTH, false);
+    if (catErr) return errorResult(catErr);
+    const descErr = validateString(description, 'Description', MAX_DESCRIPTION_LENGTH, false);
+    if (descErr) return errorResult(descErr);
 
     let categoryId: string | undefined;
     if (category) {
@@ -154,6 +185,9 @@ class CreateCategoryTool implements vscode.LanguageModelTool<CreateCategoryParam
   ): Promise<vscode.LanguageModelToolResult> {
     const { name } = options.input;
 
+    const nameErr = validateString(name, 'Name', MAX_CATEGORY_LENGTH);
+    if (nameErr) return errorResult(nameErr);
+
     const existing = storage.getCategoryByName(name);
     if (existing) {
       return new vscode.LanguageModelToolResult([
@@ -184,6 +218,11 @@ class RenameCategoryTool implements vscode.LanguageModelTool<RenameCategoryParam
     _token: vscode.CancellationToken,
   ): Promise<vscode.LanguageModelToolResult> {
     const { name, newName } = options.input;
+
+    const nameErr = validateString(name, 'Name', MAX_CATEGORY_LENGTH);
+    if (nameErr) return errorResult(nameErr);
+    const newNameErr = validateString(newName, 'New name', MAX_CATEGORY_LENGTH);
+    if (newNameErr) return errorResult(newNameErr);
 
     const cat = storage.getCategoryByName(name);
     if (!cat) {

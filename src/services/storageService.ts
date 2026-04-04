@@ -27,6 +27,29 @@ function defaultData(): StorageData {
   };
 }
 
+const VALID_SORT_MODES: readonly string[] = ['manual', 'priority', 'category', 'categoryPriority'];
+
+function parseStorageData(raw: string): StorageData {
+  const parsed: unknown = JSON.parse(raw);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Invalid storage data');
+  }
+  const obj = Object.create(null) as Record<string, unknown>;
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+    obj[key] = value;
+  }
+  return {
+    categories: Array.isArray(obj.categories) ? (obj.categories as Category[]) : [],
+    todos: Array.isArray(obj.todos) ? (obj.todos as Todo[]) : [],
+    history: Array.isArray(obj.history) ? (obj.history as CompletedTodo[]) : [],
+    sortMode:
+      typeof obj.sortMode === 'string' && VALID_SORT_MODES.includes(obj.sortMode)
+        ? (obj.sortMode as SortMode)
+        : undefined,
+  };
+}
+
 let storageUri: vscode.Uri | undefined;
 let resolvedFileUri: vscode.Uri | undefined;
 let data: StorageData = defaultData();
@@ -53,16 +76,36 @@ function isAbsolutePath(p: string): boolean {
   return p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p);
 }
 
-function resolveCustomPath(customPath: string): vscode.Uri | undefined {
+function resolveCustomPath(customPath: string, warnOnAbsolute = false): vscode.Uri | undefined {
   const resolved = customPath.replace(/\{workspace\}/g, getWorkspaceName());
 
   if (isAbsolutePath(resolved)) {
+    if (warnOnAbsolute) {
+      vscode.window.showWarningMessage(
+        vscode.l10n.t(
+          'Toudou: storagePath points to an absolute path "{0}". Make sure you trust this location.',
+          resolved,
+        ),
+      );
+    }
     return vscode.Uri.file(resolved);
   }
 
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) return undefined;
-  return vscode.Uri.joinPath(workspaceFolders[0].uri, resolved);
+
+  const base = workspaceFolders[0].uri;
+  const target = vscode.Uri.joinPath(base, resolved);
+  if (!target.fsPath.startsWith(base.fsPath)) {
+    vscode.window.showWarningMessage(
+      vscode.l10n.t(
+        'Toudou: storagePath "{0}" resolves outside the workspace. Ignoring.',
+        resolved,
+      ),
+    );
+    return undefined;
+  }
+  return target;
 }
 
 let extensionContext: vscode.ExtensionContext | undefined;
@@ -73,7 +116,8 @@ function resolveFileUri(context: vscode.ExtensionContext): vscode.Uri | undefine
   const customPath = workspaceOverride || config.get<string>('defaultStoragePath');
 
   if (customPath) {
-    return resolveCustomPath(customPath);
+    const isWorkspaceSetting = !!workspaceOverride;
+    return resolveCustomPath(customPath, isWorkspaceSetting);
   }
 
   if (context.storageUri) {
@@ -101,7 +145,7 @@ export async function initStorage(
 
   try {
     const content = await vscode.workspace.fs.readFile(fileUri());
-    data = JSON.parse(Buffer.from(content).toString('utf-8')) as StorageData;
+    data = parseStorageData(Buffer.from(content).toString('utf-8'));
   } catch {
     // File doesn't exist yet — try migrating from legacy format
     data = defaultData();
@@ -236,13 +280,27 @@ export async function addTodo(todo: Todo): Promise<void> {
   await save();
 }
 
+const ALLOWED_TODO_UPDATE_KEYS: ReadonlySet<string> = new Set([
+  'title',
+  'description',
+  'categoryId',
+  'order',
+  'priority',
+]);
+
 export async function updateTodo(
   id: string,
   updates: Partial<Pick<Todo, 'title' | 'description' | 'categoryId' | 'order' | 'priority'>>,
 ): Promise<void> {
   const todo = data.todos.find((t) => t.id === id);
   if (!todo) return;
-  Object.assign(todo, updates);
+  for (const key of Object.keys(updates)) {
+    if (ALLOWED_TODO_UPDATE_KEYS.has(key)) {
+      (todo as unknown as Record<string, unknown>)[key] = (
+        updates as unknown as Record<string, unknown>
+      )[key];
+    }
+  }
   await save();
 }
 

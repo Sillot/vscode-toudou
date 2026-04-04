@@ -389,15 +389,18 @@
           "properties": {
             "title": {
               "type": "string",
-              "description": "Title of the todo"
+              "description": "Title of the todo",
+              "maxLength": 500
             },
             "category": {
               "type": "string",
-              "description": "Category name (created if it doesn't exist, defaults to uncategorized)"
+              "description": "Category name (created if it doesn't exist, defaults to uncategorized)",
+              "maxLength": 100
             },
             "description": {
               "type": "string",
-              "description": "Optional description"
+              "description": "Optional description",
+              "maxLength": 2000
             }
           },
           "required": [
@@ -415,7 +418,8 @@
           "properties": {
             "category": {
               "type": "string",
-              "description": "Filter by category name"
+              "description": "Filter by category name",
+              "maxLength": 100
             }
           }
         }
@@ -430,11 +434,13 @@
           "properties": {
             "id": {
               "type": "string",
-              "description": "ID of the todo"
+              "description": "ID of the todo",
+              "maxLength": 100
             },
             "title": {
               "type": "string",
-              "description": "Title of the todo (fuzzy search)"
+              "description": "Title of the todo (fuzzy search)",
+              "maxLength": 500
             }
           }
         }
@@ -449,11 +455,13 @@
           "properties": {
             "id": {
               "type": "string",
-              "description": "ID of the todo"
+              "description": "ID of the todo",
+              "maxLength": 100
             },
             "title": {
               "type": "string",
-              "description": "Title of the todo (fuzzy search)"
+              "description": "Title of the todo (fuzzy search)",
+              "maxLength": 500
             }
           }
         }
@@ -468,7 +476,8 @@
           "properties": {
             "name": {
               "type": "string",
-              "description": "Name of the category"
+              "description": "Name of the category",
+              "maxLength": 100
             }
           },
           "required": [
@@ -486,11 +495,13 @@
           "properties": {
             "name": {
               "type": "string",
-              "description": "Current name of the category"
+              "description": "Current name of the category",
+              "maxLength": 100
             },
             "newName": {
               "type": "string",
-              "description": "New name for the category"
+              "description": "New name for the category",
+              "maxLength": 100
             }
           },
           "required": [
@@ -510,7 +521,7 @@
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
     "check": "npm run typecheck && npm run lint && npm run format:check",
-    "prepackage": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "prepackage": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --sourcemap=no",
     "package": "vsce package",
     "install-local": "npm run package && code --install-extension $(ls -t *.vsix | head -1)"
   },
@@ -518,7 +529,7 @@
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.24.0",
-    "esbuild": "^0.20.0",
+    "esbuild": "^0.25.12",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.4.0",

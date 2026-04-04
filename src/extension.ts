@@ -34,6 +34,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const todoTreeView = vscode.window.createTreeView('toudouView', {
     treeDataProvider: todoProvider,
     dragAndDropController: todoProvider,
+    canSelectMany: true,
   });
 
   todoTreeView.onDidChangeCheckboxState(async (e) => {
@@ -46,6 +47,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const historyTreeView = vscode.window.createTreeView('toudouHistoryView', {
     treeDataProvider: historyProvider,
+    canSelectMany: true,
   });
 
   historyTreeView.onDidChangeCheckboxState(async (e) => {
@@ -77,27 +79,45 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.completeTodoInline', (todo: Todo) =>
       storage.completeTodoById(todo.id),
     ),
-    vscode.commands.registerCommand('toudou.deleteTodoInline', (todo: Todo) =>
-      storage.deleteTodo(todo.id),
+    vscode.commands.registerCommand(
+      'toudou.deleteTodoInline',
+      async (todo: Todo, selected?: Todo[]) => {
+        const todos = selected?.length ? selected : [todo];
+        for (const t of todos) {
+          await storage.deleteTodo(t.id);
+        }
+      },
     ),
     vscode.commands.registerCommand('toudou.editTodoTitle', (todo: Todo) => editTodoTitle(todo)),
     vscode.commands.registerCommand('toudou.editTodoDescription', (todo: Todo) =>
       editTodoDescription(todo),
     ),
-    vscode.commands.registerCommand('toudou.changeTodoCategory', (todo: Todo) =>
-      changeTodoCategory(todo),
+    vscode.commands.registerCommand('toudou.changeTodoCategory', (todo: Todo, selected?: Todo[]) =>
+      changeTodoCategory(todo, selected),
     ),
-    vscode.commands.registerCommand('toudou.copyTodoText', (todo?: Todo) => {
-      const target = todo ?? todoTreeView.selection.find((s): s is Todo => 'title' in s);
-      if (!target) return;
-      const text = target.description ? `${target.title}\n${target.description}` : target.title;
+    vscode.commands.registerCommand('toudou.copyTodoText', (todo?: Todo, selected?: Todo[]) => {
+      const targets = selected?.length
+        ? selected
+        : todo
+          ? [todo]
+          : todoTreeView.selection.filter((s): s is Todo => 'title' in s);
+      if (targets.length === 0) return;
+      const text = targets
+        .map((t) => (t.description ? `${t.title}\n${t.description}` : t.title))
+        .join('\n\n');
       vscode.env.clipboard.writeText(text);
     }),
     vscode.commands.registerCommand('toudou.renameCategoryInline', (cat) =>
       renameCategoryInline(cat),
     ),
-    vscode.commands.registerCommand('toudou.deleteCategoryInline', (cat) =>
-      storage.deleteCategory(cat.id),
+    vscode.commands.registerCommand(
+      'toudou.deleteCategoryInline',
+      async (cat: { id: string }, selected?: { id: string }[]) => {
+        const cats = selected?.length ? selected : [cat];
+        for (const c of cats) {
+          await storage.deleteCategory(c.id);
+        }
+      },
     ),
     vscode.commands.registerCommand('toudou.changeCategoryEmoji', (cat) =>
       changeCategoryEmoji(cat),
@@ -105,8 +125,14 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.addTodoToCategory', (cat: { id: string }) =>
       addTodoToCategoryFlow(cat.id),
     ),
-    vscode.commands.registerCommand('toudou.restoreTodoInline', (completed: CompletedTodo) =>
-      storage.restoreFromHistory(completed.id),
+    vscode.commands.registerCommand(
+      'toudou.restoreTodoInline',
+      async (completed: CompletedTodo, selected?: CompletedTodo[]) => {
+        const items = selected?.length ? selected : [completed];
+        for (const item of items) {
+          await storage.restoreFromHistory(item.id);
+        }
+      },
     ),
     vscode.commands.registerCommand('toudou.sortByManual', () => storage.setSortMode('manual')),
     vscode.commands.registerCommand('toudou.sortByPriority', () => storage.setSortMode('priority')),
@@ -115,8 +141,9 @@ export function activate(context: vscode.ExtensionContext): void {
       storage.setSortMode('categoryPriority'),
     ),
     vscode.commands.registerCommand('toudou.changeTodoPriority', () => changeTodoPriorityPalette()),
-    vscode.commands.registerCommand('toudou.changeTodoPriorityInline', (todo: Todo) =>
-      changeTodoPriority(todo),
+    vscode.commands.registerCommand(
+      'toudou.changeTodoPriorityInline',
+      (todo: Todo, selected?: Todo[]) => changeTodoPriority(todo, selected),
     ),
     vscode.commands.registerCommand('toudou.openInCopilot', (todo: Todo) =>
       openTodoInCopilot(todo),
@@ -381,22 +408,27 @@ async function editTodoDescription(todo: Todo): Promise<void> {
   await storage.updateTodo(todo.id, { description: newDesc || undefined });
 }
 
-async function changeTodoCategory(todo: Todo): Promise<void> {
+async function changeTodoCategory(todo: Todo, selected?: Todo[]): Promise<void> {
+  const todos = selected?.length ? selected : [todo];
   const categories = storage.getCategories();
   const items = categories.map((c) => ({
     label: c.name,
     id: c.id,
-    picked: c.id === todo.categoryId,
+    picked: todos.length === 1 ? c.id === todos[0].categoryId : false,
   }));
 
   const pick = await vscode.window.showQuickPick(items, {
     placeHolder: vscode.l10n.t('Select new category'),
     ignoreFocusOut: true,
   });
-  if (!pick || pick.id === todo.categoryId) return;
+  if (!pick) return;
 
-  const order = storage.getNextOrder(pick.id);
-  await storage.moveTodoToCategory(todo.id, pick.id, order);
+  for (const t of todos) {
+    if (t.categoryId !== pick.id) {
+      const order = storage.getNextOrder(pick.id);
+      await storage.moveTodoToCategory(t.id, pick.id, order);
+    }
+  }
 }
 
 async function renameCategoryInline(cat: { id: string; name: string }): Promise<void> {
@@ -472,20 +504,29 @@ const PRIORITY_PICK_LABELS: { label: string; priority: TodoPriority | undefined 
   { label: '$(close) None', priority: undefined },
 ];
 
-async function changeTodoPriority(todo: Todo): Promise<void> {
+async function changeTodoPriority(todo: Todo, selected?: Todo[]): Promise<void> {
+  const todos = selected?.length ? selected : [todo];
   const items = PRIORITY_PICK_LABELS.map((p) => ({
     label: p.label,
-    description: todo.priority === p.priority ? vscode.l10n.t('(current)') : undefined,
+    description:
+      todos.length === 1 && todos[0].priority === p.priority
+        ? vscode.l10n.t('(current)')
+        : undefined,
     priority: p.priority,
   }));
 
   const pick = await vscode.window.showQuickPick(items, {
-    placeHolder: vscode.l10n.t('Select priority for "{0}"', todo.title),
+    placeHolder:
+      todos.length === 1
+        ? vscode.l10n.t('Select priority for "{0}"', todos[0].title)
+        : vscode.l10n.t('Select priority'),
     ignoreFocusOut: true,
   });
   if (!pick) return;
 
-  await storage.setTodoPriority(todo.id, pick.priority);
+  for (const t of todos) {
+    await storage.setTodoPriority(t.id, pick.priority);
+  }
 }
 
 async function changeTodoPriorityPalette(): Promise<void> {
@@ -510,7 +551,9 @@ async function setWorkspacePathFlow(refreshAll: () => void): Promise<void> {
   const current = storage.getWorkspaceStoragePath();
 
   const newPath = await vscode.window.showInputBox({
-    prompt: vscode.l10n.t('Storage file path for this workspace (absolute or relative to workspace root)'),
+    prompt: vscode.l10n.t(
+      'Storage file path for this workspace (absolute or relative to workspace root)',
+    ),
     placeHolder: vscode.l10n.t('e.g. .vscode/toudou.json or leave empty to reset'),
     value: current ?? '',
     ignoreFocusOut: true,
