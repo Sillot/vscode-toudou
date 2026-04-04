@@ -4,8 +4,23 @@
   "description": "%description%",
   "version": "0.0.1",
   "publisher": "quentin",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sillot/vscode-toudou"
+  },
+  "keywords": [
+    "todo",
+    "task",
+    "productivity",
+    "workspace",
+    "sidebar",
+    "checklist"
+  ],
+  "license": "MIT",
+  "pricing": "Free",
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.110.0"
   },
   "categories": [
     "Other"
@@ -292,6 +307,11 @@
           "group": "2_copy@1"
         },
         {
+          "command": "toudou.addTodoToCategory",
+          "when": "view == toudouView && viewItem == category",
+          "group": "0_add@1"
+        },
+        {
           "command": "toudou.renameCategoryInline",
           "when": "view == toudouView && viewItem == category",
           "group": "1_category@1"
@@ -571,6 +591,7 @@
     ]
   },
   "scripts": {
+    "vscode:prepublish": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
     "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
     "watch": "npm run compile -- --watch",
     "typecheck": "tsc --noEmit",
@@ -584,13 +605,13 @@
     "install-local": "npm run package && code --install-extension $(ls -t *.vsix | head -1) --force"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^2.24.0",
-    "esbuild": "^0.25.12",
-    "eslint": "^9.0.0",
-    "prettier": "^3.0.0",
-    "typescript": "^5.4.0",
-    "typescript-eslint": "^8.0.0"
+    "@types/node": "^25.5.2",
+    "@types/vscode": "^1.110.0",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.2.0",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0"
   }
 }

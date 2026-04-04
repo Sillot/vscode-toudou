@@ -321,7 +321,11 @@ export function getTodoById(id: string): Todo | undefined {
 
 export function findTodoByTitle(title: string): Todo | undefined {
   const lower = title.toLowerCase();
-  return data.todos.find((t) => t.title.toLowerCase().includes(lower));
+  // Prefer exact match, then fall back to partial match only if unambiguous
+  const exact = data.todos.find((t) => t.title.toLowerCase() === lower);
+  if (exact) return exact;
+  const matches = data.todos.filter((t) => t.title.toLowerCase().includes(lower));
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export async function addTodo(todo: Todo): Promise<void> {

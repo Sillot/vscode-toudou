@@ -575,7 +575,7 @@ async function openTodoInCopilot(todo: Todo, selected?: Todo[]): Promise<void> {
   }
   storage.endUndoBatch();
 
-  const message = todos
+  const todosText = todos
     .map((t) => {
       const parts = [`Task: ${t.title}`];
       if (t.description) {
@@ -584,6 +584,8 @@ async function openTodoInCopilot(todo: Todo, selected?: Todo[]): Promise<void> {
       return parts.join('\n');
     })
     .join('\n\n');
+
+  const message = `Work on the following todo(s) from my Toudou list:\n\n---\n${todosText}\n---`;
 
   await vscode.commands.executeCommand('workbench.action.chat.open', { query: message });
 }
