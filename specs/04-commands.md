@@ -12,8 +12,8 @@ Toutes les commandes sont préfixées `Toudou:`.
 | Toudou: Créer une catégorie | `toudou.addCategory` | Input box pour le nom de la catégorie |
 | Toudou: Renommer une catégorie | `toudou.renameCategory` | Quick pick catégorie + input box nouveau nom |
 | Toudou: Supprimer une catégorie | `toudou.deleteCategory` | Quick pick catégorie, les todos deviennent sans catégorie |
-| Toudou: Restaurer depuis l'historique | `toudou.restoreTodo` | Quick pick d'une todo complétée à restaurer |
-| Toudou: Purger l'historique | `toudou.purgeHistory` | Supprime tout l'historique après confirmation |
+| Toudou: Restaurer depuis les Toudones | `toudou.restoreTodo` | Quick pick d'une todo complétée à restaurer |
+| Toudou: Purger les Toudones | `toudou.purgeHistory` | Supprime toutes les Toudones après confirmation |
 | Toudou: Changer la priorité | `toudou.changeTodoPriority` | Quick pick todo + quick pick priorité |
 | Toudou: Ouvrir le fichier de stockage | `toudou.openStorageFile` | Ouvre le fichier JSON de stockage dans l'éditeur |
 | Toudou: Définir le chemin de stockage | `toudou.setWorkspacePath` | Permet de choisir un chemin personnalisé pour le fichier de stockage du workspace |

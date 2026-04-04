@@ -55,6 +55,10 @@ let resolvedFileUri: vscode.Uri | undefined;
 let data: StorageData = defaultData();
 let onDidChange: (() => void) | undefined;
 
+const MAX_UNDO_STACK = 50;
+const undoStack: string[] = [];
+const redoStack: string[] = [];
+
 function fileUri(): vscode.Uri {
   if (!resolvedFileUri) {
     throw new Error('StorageService not initialized');
@@ -195,6 +199,46 @@ async function save(): Promise<void> {
   onDidChange?.();
 }
 
+let batchDepth = 0;
+
+function pushUndo(): void {
+  if (batchDepth > 0) return;
+  undoStack.push(JSON.stringify(data));
+  if (undoStack.length > MAX_UNDO_STACK) {
+    undoStack.shift();
+  }
+  redoStack.length = 0;
+}
+
+export function beginUndoBatch(): void {
+  if (batchDepth === 0) {
+    pushUndo();
+  }
+  batchDepth++;
+}
+
+export function endUndoBatch(): void {
+  if (batchDepth > 0) batchDepth--;
+}
+
+export async function undo(): Promise<boolean> {
+  const snapshot = undoStack.pop();
+  if (!snapshot) return false;
+  redoStack.push(JSON.stringify(data));
+  data = parseStorageData(snapshot);
+  await save();
+  return true;
+}
+
+export async function redo(): Promise<boolean> {
+  const snapshot = redoStack.pop();
+  if (!snapshot) return false;
+  undoStack.push(JSON.stringify(data));
+  data = parseStorageData(snapshot);
+  await save();
+  return true;
+}
+
 // --- Categories ---
 
 export function getCategories(): Category[] {
@@ -210,6 +254,7 @@ export function getCategoryByName(name: string): Category | undefined {
 }
 
 export async function addCategory(category: Category): Promise<void> {
+  pushUndo();
   data.categories.push(category);
   await save();
 }
@@ -217,6 +262,7 @@ export async function addCategory(category: Category): Promise<void> {
 export async function renameCategory(id: string, newName: string): Promise<void> {
   const cat = data.categories.find((c) => c.id === id);
   if (!cat) return;
+  pushUndo();
   cat.name = newName;
   await save();
 }
@@ -224,11 +270,13 @@ export async function renameCategory(id: string, newName: string): Promise<void>
 export async function updateCategoryEmoji(id: string, emoji: string | undefined): Promise<void> {
   const cat = data.categories.find((c) => c.id === id);
   if (!cat) return;
+  pushUndo();
   cat.emoji = emoji;
   await save();
 }
 
 export async function deleteCategory(id: string): Promise<void> {
+  pushUndo();
   // Move todos to uncategorized (top-level)
   const uncategorized = getUncategorizedTodos();
   let maxOrder = uncategorized.length > 0 ? Math.max(...uncategorized.map((t) => t.order)) + 1 : 0;
@@ -245,6 +293,7 @@ export async function deleteCategory(id: string): Promise<void> {
 }
 
 export async function reorderCategories(orderedIds: string[]): Promise<void> {
+  pushUndo();
   for (let i = 0; i < orderedIds.length; i++) {
     const cat = data.categories.find((c) => c.id === orderedIds[i]);
     if (cat) cat.order = i;
@@ -276,6 +325,7 @@ export function findTodoByTitle(title: string): Todo | undefined {
 }
 
 export async function addTodo(todo: Todo): Promise<void> {
+  pushUndo();
   data.todos.push(todo);
   await save();
 }
@@ -294,6 +344,7 @@ export async function updateTodo(
 ): Promise<void> {
   const todo = data.todos.find((t) => t.id === id);
   if (!todo) return;
+  pushUndo();
   for (const key of Object.keys(updates)) {
     if (ALLOWED_TODO_UPDATE_KEYS.has(key)) {
       (todo as unknown as Record<string, unknown>)[key] = (
@@ -305,6 +356,7 @@ export async function updateTodo(
 }
 
 export async function deleteTodo(id: string): Promise<void> {
+  pushUndo();
   data.todos = data.todos.filter((t) => t.id !== id);
   await save();
 }
@@ -312,6 +364,7 @@ export async function deleteTodo(id: string): Promise<void> {
 export async function completeTodoById(id: string): Promise<void> {
   const idx = data.todos.findIndex((t) => t.id === id);
   if (idx === -1) return;
+  pushUndo();
   const [todo] = data.todos.splice(idx, 1);
   data.history.push({
     id: todo.id,
@@ -329,6 +382,7 @@ export async function reorderTodos(
   categoryId: string | undefined,
   orderedIds: string[],
 ): Promise<void> {
+  pushUndo();
   for (let i = 0; i < orderedIds.length; i++) {
     const todo = data.todos.find((t) => t.id === orderedIds[i] && t.categoryId === categoryId);
     if (todo) todo.order = i;
@@ -343,6 +397,7 @@ export async function moveTodoToCategory(
 ): Promise<void> {
   const todo = data.todos.find((t) => t.id === todoId);
   if (!todo) return;
+  pushUndo();
   todo.categoryId = targetCategoryId;
   todo.order = order;
   await save();
@@ -359,6 +414,7 @@ export function getHistory(): CompletedTodo[] {
 export async function restoreFromHistory(id: string): Promise<void> {
   const idx = data.history.findIndex((t) => t.id === id);
   if (idx === -1) return;
+  pushUndo();
   const [completed] = data.history.splice(idx, 1);
 
   // Restore to original category, or uncategorized if it no longer exists
@@ -382,6 +438,7 @@ export async function restoreFromHistory(id: string): Promise<void> {
 }
 
 export async function purgeHistory(): Promise<void> {
+  pushUndo();
   data.history = [];
   await save();
 }
@@ -398,6 +455,7 @@ export function getSortMode(): SortMode {
 }
 
 export async function setSortMode(mode: SortMode): Promise<void> {
+  pushUndo();
   data.sortMode = mode;
   await save();
 }
@@ -410,6 +468,7 @@ export async function setTodoPriority(
 ): Promise<void> {
   const todo = data.todos.find((t) => t.id === id);
   if (!todo) return;
+  pushUndo();
   todo.priority = priority;
   await save();
 }
@@ -419,6 +478,7 @@ export async function setTodoPriority(
 export async function setTodoInProgress(id: string, inProgress: boolean): Promise<void> {
   const todo = data.todos.find((t) => t.id === id);
   if (!todo) return;
+  pushUndo();
   todo.inProgress = inProgress || undefined;
   await save();
 }

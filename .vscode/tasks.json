@@ -31,7 +31,7 @@
     {
       "label": "Install Extension",
       "type": "shell",
-      "command": "npm run install-local",
+      "command": "docker exec toudou-dev npm run package && code --install-extension $(ls -t *.vsix | head -1) --force",
       "problemMatcher": []
     },
     {

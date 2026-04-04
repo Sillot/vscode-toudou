@@ -190,6 +190,16 @@
       {
         "command": "toudou.deleteSelected",
         "title": "Delete Selected"
+      },
+      {
+        "command": "toudou.undo",
+        "title": "%command.undo%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.redo",
+        "title": "%command.redo%",
+        "category": "Toudou"
       }
     ],
     "submenus": [
@@ -369,6 +379,14 @@
           "when": "false"
         },
         {
+          "command": "toudou.undo",
+          "when": "false"
+        },
+        {
+          "command": "toudou.redo",
+          "when": "false"
+        },
+        {
           "command": "toudou.sortByManual",
           "when": "false"
         },
@@ -398,6 +416,24 @@
         "key": "delete",
         "mac": "delete",
         "when": "focusedView == toudouView"
+      },
+      {
+        "command": "toudou.undo",
+        "key": "ctrl+z",
+        "mac": "cmd+z",
+        "when": "focusedView == toudouView || focusedView == toudouHistoryView"
+      },
+      {
+        "command": "toudou.redo",
+        "key": "ctrl+u",
+        "mac": "cmd+u",
+        "when": "focusedView == toudouView || focusedView == toudouHistoryView"
+      },
+      {
+        "command": "toudou.redo",
+        "key": "ctrl+shift+z",
+        "mac": "cmd+shift+z",
+        "when": "focusedView == toudouView || focusedView == toudouHistoryView"
       }
     ],
     "languageModelTools": [
@@ -543,9 +579,9 @@
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
     "check": "npm run typecheck && npm run lint && npm run format:check",
-    "prepackage": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --sourcemap=no",
+    "prepackage": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
     "package": "vsce package",
-    "install-local": "npm run package && code --install-extension $(ls -t *.vsix | head -1)"
+    "install-local": "npm run package && code --install-extension $(ls -t *.vsix | head -1) --force"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

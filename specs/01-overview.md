@@ -2,7 +2,7 @@
 
 ## Pitch
 
-Extension VS Code de gestion de todos, scopée au workspace. Simple, locale, persistante entre les sessions, avec historique des tâches complétées et intégration IA.
+Extension VS Code de gestion de todos, scopée au workspace. Simple, locale, persistante entre les sessions, avec un panneau des tâches complétées (Toudones) et intégration IA.
 
 ## Principes directeurs
 
@@ -27,8 +27,8 @@ src/
     todo.ts             — Modèle Todo
     category.ts         — Modèle Category
   providers/
-    todoProvider.ts     — TreeDataProvider pour le panneau Todos
-    historyProvider.ts  — TreeDataProvider pour le panneau Historique
+    todoProvider.ts     — TreeDataProvider pour le panneau Toudous
+    historyProvider.ts  — TreeDataProvider pour le panneau Toudones
   services/
     storageService.ts   — Lecture/écriture du fichier JSON
   tools/

@@ -2,7 +2,7 @@
 
 ## Comportement
 
-Le panneau Todos supporte le drag & drop via l'API `TreeDragAndDropController`.
+Le panneau Toudous supporte le drag & drop via l'API `TreeDragAndDropController`.
 
 ### Réordonnement de todos
 
@@ -18,7 +18,7 @@ Le panneau Todos supporte le drag & drop via l'API `TreeDragAndDropController`.
 ### Règles
 
 - On ne peut pas drop une catégorie dans une autre catégorie.
-- On ne peut pas drag depuis/vers le panneau Historique.
+- On ne peut pas drag depuis/vers le panneau Toudones.
 - Le `order` de tous les éléments affectés est recalculé après un drop.
 - Le fichier JSON est sauvegardé immédiatement après chaque opération.
 

@@ -71,6 +71,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.deleteCategory', () => deleteCategoryPalette()),
     vscode.commands.registerCommand('toudou.restoreTodo', () => restoreTodoPalette()),
     vscode.commands.registerCommand('toudou.purgeHistory', () => purgeHistoryFlow()),
+    vscode.commands.registerCommand('toudou.undo', () => storage.undo()),
+    vscode.commands.registerCommand('toudou.redo', () => storage.redo()),
   );
 
   // --- Inline commands ---
@@ -87,9 +89,11 @@ export function activate(context: vscode.ExtensionContext): void {
           : todo
             ? [todo]
             : todoTreeView.selection.filter((s): s is Todo => 'title' in s);
+        storage.beginUndoBatch();
         for (const t of todos) {
           await storage.deleteTodo(t.id);
         }
+        storage.endUndoBatch();
       },
     ),
     vscode.commands.registerCommand('toudou.editTodoTitle', (todo: Todo) => editTodoTitle(todo)),
@@ -118,9 +122,11 @@ export function activate(context: vscode.ExtensionContext): void {
       'toudou.deleteCategoryInline',
       async (cat: { id: string }, selected?: { id: string }[]) => {
         const cats = selected?.length ? selected : [cat];
+        storage.beginUndoBatch();
         for (const c of cats) {
           await storage.deleteCategory(c.id);
         }
+        storage.endUndoBatch();
       },
     ),
     vscode.commands.registerCommand('toudou.changeCategoryEmoji', (cat) =>
@@ -133,9 +139,11 @@ export function activate(context: vscode.ExtensionContext): void {
       'toudou.restoreTodoInline',
       async (completed: CompletedTodo, selected?: CompletedTodo[]) => {
         const items = selected?.length ? selected : [completed];
+        storage.beginUndoBatch();
         for (const item of items) {
           await storage.restoreFromHistory(item.id);
         }
+        storage.endUndoBatch();
       },
     ),
     vscode.commands.registerCommand('toudou.sortByManual', () => storage.setSortMode('manual')),
@@ -166,6 +174,7 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('toudou.deleteSelected', async () => {
       const selection = todoTreeView.selection;
+      storage.beginUndoBatch();
       for (const item of selection) {
         if ('title' in item) {
           await storage.deleteTodo((item as Todo).id);
@@ -173,6 +182,7 @@ export function activate(context: vscode.ExtensionContext): void {
           await storage.deleteCategory((item as { id: string }).id);
         }
       }
+      storage.endUndoBatch();
     }),
     vscode.commands.registerCommand('toudou.clickTodo', (todo: Todo) => handleTodoClick(todo)),
   );
@@ -366,7 +376,7 @@ async function deleteCategoryPalette(): Promise<void> {
 async function restoreTodoPalette(): Promise<void> {
   const history = storage.getHistory();
   if (history.length === 0) {
-    vscode.window.showInformationMessage(vscode.l10n.t('History is empty.'));
+    vscode.window.showInformationMessage(vscode.l10n.t('Toudones is empty.'));
     return;
   }
 
@@ -388,12 +398,12 @@ async function restoreTodoPalette(): Promise<void> {
 async function purgeHistoryFlow(): Promise<void> {
   const history = storage.getHistory();
   if (history.length === 0) {
-    vscode.window.showInformationMessage(vscode.l10n.t('History is already empty.'));
+    vscode.window.showInformationMessage(vscode.l10n.t('Toudones is already empty.'));
     return;
   }
 
   const confirm = await vscode.window.showWarningMessage(
-    vscode.l10n.t('Delete all {0} completed todo(s) from history?', history.length),
+    vscode.l10n.t('Delete all {0} completed todo(s) from Toudones?', history.length),
     { modal: true },
     vscode.l10n.t('Purge'),
   );
@@ -438,12 +448,14 @@ async function changeTodoCategory(todo: Todo, selected?: Todo[]): Promise<void> 
   });
   if (!pick) return;
 
+  storage.beginUndoBatch();
   for (const t of todos) {
     if (t.categoryId !== pick.id) {
       const order = storage.getNextOrder(pick.id);
       await storage.moveTodoToCategory(t.id, pick.id, order);
     }
   }
+  storage.endUndoBatch();
 }
 
 async function renameCategoryInline(cat: { id: string; name: string }): Promise<void> {
@@ -539,9 +551,11 @@ async function changeTodoPriority(todo: Todo, selected?: Todo[]): Promise<void> 
   });
   if (!pick) return;
 
+  storage.beginUndoBatch();
   for (const t of todos) {
     await storage.setTodoPriority(t.id, pick.priority);
   }
+  storage.endUndoBatch();
 }
 
 async function changeTodoPriorityPalette(): Promise<void> {
@@ -553,11 +567,13 @@ async function changeTodoPriorityPalette(): Promise<void> {
 async function openTodoInCopilot(todo: Todo, selected?: Todo[]): Promise<void> {
   const todos = selected?.length ? selected : [todo];
 
+  storage.beginUndoBatch();
   for (const t of todos) {
     if (!t.inProgress) {
       await storage.setTodoInProgress(t.id, true);
     }
   }
+  storage.endUndoBatch();
 
   const message = todos
     .map((t) => {

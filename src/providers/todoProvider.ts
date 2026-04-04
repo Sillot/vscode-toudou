@@ -3,16 +3,16 @@ import { Category } from '../models/category';
 import { NO_PRIORITY_ORDER, PRIORITY_ORDER, Todo, TodoPriority } from '../models/todo';
 import type { SortMode } from '../services/storageService';
 import {
-    getCategories,
-    getCategoryById,
-    getNextOrder,
-    getSortMode,
-    getTodos,
-    getTodosByCategory,
-    getUncategorizedTodos,
-    moveTodoToCategory,
-    reorderCategories,
-    reorderTodos,
+  getCategories,
+  getCategoryById,
+  getNextOrder,
+  getSortMode,
+  getTodos,
+  getTodosByCategory,
+  getUncategorizedTodos,
+  moveTodoToCategory,
+  reorderCategories,
+  reorderTodos,
 } from '../services/storageService';
 
 const DRAG_MIME = 'application/vnd.code.tree.toudouView';
