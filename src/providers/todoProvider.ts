@@ -3,21 +3,30 @@ import { Category } from '../models/category';
 import { NO_PRIORITY_ORDER, PRIORITY_ORDER, Todo, TodoPriority } from '../models/todo';
 import type { SortMode } from '../services/storageService';
 import {
-  getCategories,
-  getCategoryById,
-  getNextOrder,
-  getSortMode,
-  getTodos,
-  getTodosByCategory,
-  getUncategorizedTodos,
-  moveTodoToCategory,
-  reorderCategories,
-  reorderTodos,
+    getCategories,
+    getCategoryById,
+    getNextOrder,
+    getSortMode,
+    getTodos,
+    getTodosByCategory,
+    getUncategorizedTodos,
+    moveTodoToCategory,
+    reorderCategories,
+    reorderTodos,
 } from '../services/storageService';
 
 const DRAG_MIME = 'application/vnd.code.tree.toudouView';
 
-type TreeNode = Category | Todo;
+export interface FilterIndicator {
+  readonly kind: 'filter';
+  readonly text: string;
+}
+
+type TreeNode = Category | Todo | FilterIndicator;
+
+function isFilterIndicator(node: TreeNode): node is FilterIndicator {
+  return 'kind' in node && (node as FilterIndicator).kind === 'filter';
+}
 
 const PRIORITY_ICONS: Record<TodoPriority, string> = {
   high: '⬆ High',
@@ -49,11 +58,25 @@ export class TodoProvider
   readonly dragMimeTypes = [DRAG_MIME];
   readonly dropMimeTypes = [DRAG_MIME];
 
+  private filterText: string | undefined;
+
+  setFilter(text: string | undefined): void {
+    this.filterText = text;
+    this.refresh();
+  }
+
+  getFilter(): string | undefined {
+    return this.filterText;
+  }
+
   refresh(): void {
     this._onDidChangeTreeData.fire(undefined);
   }
 
   getTreeItem(element: TreeNode): vscode.TreeItem {
+    if (isFilterIndicator(element)) {
+      return this.getFilterItem(element);
+    }
     if (isCategory(element)) {
       return this.getCategoryItem(element);
     }
@@ -61,25 +84,53 @@ export class TodoProvider
   }
 
   getChildren(element?: TreeNode): TreeNode[] {
-    const sortMode = getSortMode();
+    if (element) {
+      if (isFilterIndicator(element)) return [];
+      if (isCategory(element)) {
+        return this.getCategoryChildren(element.id, getSortMode());
+      }
+      return [];
+    }
+    const children: TreeNode[] = [];
+    if (this.filterText) {
+      children.push({ kind: 'filter', text: this.filterText });
+    }
+    children.push(...this.getRootChildren(getSortMode()));
+    return children;
+  }
 
-    if (!element) {
-      return this.getRootChildren(sortMode);
+  private matchesFilter(todo: Todo): boolean {
+    if (!this.filterText) return true;
+    const text = this.filterText.toLowerCase();
+    if (todo.title.toLowerCase().includes(text)) return true;
+    if (todo.description !== undefined && todo.description.toLowerCase().includes(text))
+      return true;
+    if (todo.categoryId) {
+      const cat = getCategoryById(todo.categoryId);
+      if (cat && cat.name.toLowerCase().includes(text)) return true;
     }
-    if (isCategory(element)) {
-      return this.getCategoryChildren(element.id, sortMode);
-    }
-    return [];
+    return false;
+  }
+
+  private categoryMatchesFilter(category: Category): boolean {
+    if (!this.filterText) return true;
+    return category.name.toLowerCase().includes(this.filterText.toLowerCase());
   }
 
   private getRootChildren(sortMode: SortMode): TreeNode[] {
     if (sortMode === 'priority') {
       // Flat list of all todos sorted by priority
-      return [...getTodos()].sort(priorityCompare);
+      return [...getTodos()].filter((t) => this.matchesFilter(t)).sort(priorityCompare);
     }
     // manual, category, categoryPriority: uncategorized todos first, then categories
-    const uncategorized = getUncategorizedTodos();
-    const categories = getCategories();
+    const uncategorized = getUncategorizedTodos().filter((t) => this.matchesFilter(t));
+    const categories = this.filterText
+      ? getCategories().filter(
+          (c) =>
+            this.categoryMatchesFilter(c) ||
+            getTodosByCategory(c.id).some((t) => this.matchesFilter(t)),
+        )
+      : getCategories();
     if (sortMode === 'categoryPriority') {
       return ([...uncategorized].sort(priorityCompare) as TreeNode[]).concat(categories);
     }
@@ -87,7 +138,11 @@ export class TodoProvider
   }
 
   private getCategoryChildren(categoryId: string, sortMode: SortMode): Todo[] {
-    const todos = getTodosByCategory(categoryId);
+    const category = getCategoryById(categoryId);
+    const showAll = category && this.categoryMatchesFilter(category);
+    const todos = showAll
+      ? getTodosByCategory(categoryId)
+      : getTodosByCategory(categoryId).filter((t) => this.matchesFilter(t));
     if (sortMode === 'categoryPriority') {
       return [...todos].sort(priorityCompare);
     }
@@ -95,6 +150,7 @@ export class TodoProvider
   }
 
   getParent(element: TreeNode): TreeNode | undefined {
+    if (isFilterIndicator(element)) return undefined;
     if (isTodo(element) && element.categoryId !== undefined) {
       return getCategories().find((c) => c.id === element.categoryId);
     }
@@ -124,16 +180,25 @@ export class TodoProvider
 
     const source = sources[0];
 
-    // Category dropped on root or another category → reorder categories
-    if (isCategory(source)) {
-      if (target && isTodo(target)) return; // Can't drop category onto a todo
-      await this.handleCategoryDrop(source, target as Category | undefined);
-      return;
-    }
+    // Ignore filter indicator
+    if (isFilterIndicator(source)) return;
+    if (target && isFilterIndicator(target)) return;
 
-    // Todo dropped → reorder, move between categories, or move to/from uncategorized
-    if (isTodo(source)) {
-      await this.handleTodoDrop(source, target);
+    try {
+      // Category dropped on root or another category → reorder categories
+      if (isCategory(source)) {
+        if (target && isTodo(target)) return; // Can't drop category onto a todo
+        await this.handleCategoryDrop(source, target as Category | undefined);
+        return;
+      }
+
+      // Todo dropped → reorder, move between categories, or move to/from uncategorized
+      if (isTodo(source)) {
+        await this.handleTodoDrop(source, target);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(vscode.l10n.t('Failed to move item: {0}', message));
     }
   }
 
@@ -199,6 +264,20 @@ export class TodoProvider
         updatedTodos.map((t) => t.id),
       );
     }
+  }
+
+  private getFilterItem(filter: FilterIndicator): vscode.TreeItem {
+    const item = new vscode.TreeItem(
+      vscode.l10n.t('Filter: {0}', filter.text),
+      vscode.TreeItemCollapsibleState.None,
+    );
+    item.contextValue = 'filterIndicator';
+    item.iconPath = new vscode.ThemeIcon('search');
+    item.command = {
+      command: 'toudou.filterTodos',
+      title: '',
+    };
+    return item;
   }
 
   private getCategoryItem(category: Category): vscode.TreeItem {

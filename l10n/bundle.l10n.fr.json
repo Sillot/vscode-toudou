@@ -43,5 +43,10 @@
   "Select a todo to change priority": "Sélectionner une tâche pour changer la priorité",
   "Select priority": "Sélectionner la priorité",
   "Storage file path for this workspace (absolute or relative to workspace root)": "Chemin du fichier de stockage pour ce workspace (absolu ou relatif à la racine)",
-  "e.g. .vscode/toudou.json or leave empty to reset": "ex: .vscode/toudou.json ou laisser vide pour réinitialiser"
+  "e.g. .vscode/toudou.json or leave empty to reset": "ex: .vscode/toudou.json ou laisser vide pour réinitialiser",
+  "Filter todos": "Filtrer les tâches",
+  "Type to filter by title or description...": "Tapez pour filtrer par titre ou description...",
+  "Filter: {0}": "Filtre : {0}",
+  "Filter toudones": "Filtrer les Toudones",
+  "Failed to move item: {0}": "Échec du déplacement : {0}"
 }

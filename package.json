@@ -184,6 +184,10 @@
         "icon": "$(copilot)"
       },
       {
+        "command": "toudou.toggleInProgress",
+        "title": "%command.toggleInProgress%"
+      },
+      {
         "command": "toudou.openSettings",
         "title": "%command.openSettings%",
         "icon": "$(gear)"
@@ -215,6 +219,28 @@
         "command": "toudou.redo",
         "title": "%command.redo%",
         "category": "Toudou"
+      },
+      {
+        "command": "toudou.filterTodos",
+        "title": "%command.filterTodos%",
+        "category": "Toudou",
+        "icon": "$(search)"
+      },
+      {
+        "command": "toudou.clearFilter",
+        "title": "%command.clearFilter%",
+        "icon": "$(close)"
+      },
+      {
+        "command": "toudou.filterHistory",
+        "title": "%command.filterHistory%",
+        "category": "Toudou",
+        "icon": "$(search)"
+      },
+      {
+        "command": "toudou.clearHistoryFilter",
+        "title": "%command.clearHistoryFilter%",
+        "icon": "$(close)"
       }
     ],
     "submenus": [
@@ -247,9 +273,19 @@
           "group": "navigation@4"
         },
         {
+          "command": "toudou.filterTodos",
+          "when": "view == toudouView",
+          "group": "navigation@5"
+        },
+        {
           "command": "toudou.purgeHistory",
           "when": "view == toudouHistoryView",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "toudou.filterHistory",
+          "when": "view == toudouHistoryView",
+          "group": "navigation@2"
         }
       ],
       "toudou.sortMenu": [
@@ -297,6 +333,11 @@
           "group": "1_edit@4"
         },
         {
+          "command": "toudou.toggleInProgress",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@5"
+        },
+        {
           "command": "toudou.openInCopilot",
           "when": "view == toudouView && viewItem == todo",
           "group": "3_copilot@1"
@@ -334,6 +375,16 @@
         {
           "command": "toudou.restoreTodoInline",
           "when": "view == toudouHistoryView && viewItem == completedTodo",
+          "group": "inline@1"
+        },
+        {
+          "command": "toudou.clearFilter",
+          "when": "view == toudouView && viewItem == filterIndicator",
+          "group": "inline@1"
+        },
+        {
+          "command": "toudou.clearHistoryFilter",
+          "when": "view == toudouHistoryView && viewItem == filterIndicator",
           "group": "inline@1"
         }
       ],
@@ -388,6 +439,22 @@
         },
         {
           "command": "toudou.openInCopilot",
+          "when": "false"
+        },
+        {
+          "command": "toudou.toggleInProgress",
+          "when": "false"
+        },
+        {
+          "command": "toudou.clearFilter",
+          "when": "false"
+        },
+        {
+          "command": "toudou.filterHistory",
+          "when": "false"
+        },
+        {
+          "command": "toudou.clearHistoryFilter",
           "when": "false"
         },
         {

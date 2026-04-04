@@ -17,6 +17,9 @@ Toutes les commandes sont préfixées `Toudou:`.
 | Toudou: Changer la priorité | `toudou.changeTodoPriority` | Quick pick todo + quick pick priorité |
 | Toudou: Ouvrir le fichier de stockage | `toudou.openStorageFile` | Ouvre le fichier JSON de stockage dans l'éditeur |
 | Toudou: Définir le chemin de stockage | `toudou.setWorkspacePath` | Permet de choisir un chemin personnalisé pour le fichier de stockage du workspace |
+| Toudou: Filtrer les todos | `toudou.filterTodos` | Input box pour filtrer les todos par titre ou description |
+| Toudou: Annuler | `toudou.undo` | Annule la dernière action |
+| Toudou: Rétablir | `toudou.redo` | Rétablit la dernière action annulée |
 
 ## Commandes internes (non visibles dans la palette)
 
@@ -32,6 +35,7 @@ Ces commandes sont appelées uniquement depuis la TreeView via les menus/icônes
 | `toudou.changeTodoPriorityInline` | Menu contextuel "Changer la priorité" |
 | `toudou.copyTodoText` | Menu contextuel "Copier le texte" (+ raccourci `Ctrl+C` / `Cmd+C` quand focus sur toudouView) |
 | `toudou.openInCopilot` | Menu contextuel "Ouvrir dans Copilot" |
+| `toudou.toggleInProgress` | Menu contextuel "Basculer en cours" |
 | `toudou.renameCategoryInline` | Menu contextuel sur catégorie |
 | `toudou.deleteCategoryInline` | Menu contextuel sur catégorie |
 | `toudou.changeCategoryEmoji` | Menu contextuel sur catégorie |
@@ -42,3 +46,8 @@ Ces commandes sont appelées uniquement depuis la TreeView via les menus/icônes
 | `toudou.sortByCategory` | Sous-menu tri |
 | `toudou.sortByCategoryPriority` | Sous-menu tri |
 | `toudou.openSettings` | Icône gear dans la barre de titre |
+| `toudou.clearFilter` | Icône close dans la barre de titre (visible quand filtre actif) |
+| `toudou.filterHistory` | Icône search dans la barre de titre du panneau Toudones |
+| `toudou.clearHistoryFilter` | Icône close dans la barre de titre du panneau Toudones (visible quand filtre actif) |
+| `toudou.clickTodo` | Clic sur une todo (détection simple/double clic) |
+| `toudou.deleteSelected` | Raccourci `Delete` quand focus sur toudouView |

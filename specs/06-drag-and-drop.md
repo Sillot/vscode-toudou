@@ -21,6 +21,7 @@ Le panneau Toudous supporte le drag & drop via l'API `TreeDragAndDropController`
 - On ne peut pas drag depuis/vers le panneau Toudones.
 - Le `order` de tous les éléments affectés est recalculé après un drop.
 - Le fichier JSON est sauvegardé immédiatement après chaque opération.
+- En cas d'erreur lors du drop, un message d'erreur est affiché à l'utilisateur via `showErrorMessage`.
 
 ### MIME type
 

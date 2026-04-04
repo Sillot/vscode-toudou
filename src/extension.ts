@@ -152,6 +152,32 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.sortByCategoryPriority', () =>
       storage.setSortMode('categoryPriority'),
     ),
+    vscode.commands.registerCommand('toudou.filterTodos', async () => {
+      const value = await vscode.window.showInputBox({
+        prompt: vscode.l10n.t('Filter todos'),
+        placeHolder: vscode.l10n.t('Type to filter by title or description...'),
+        value: todoProvider.getFilter() ?? '',
+        ignoreFocusOut: true,
+      });
+      if (value === undefined) return; // cancelled
+      todoProvider.setFilter(value.trim() || undefined);
+    }),
+    vscode.commands.registerCommand('toudou.clearFilter', () => {
+      todoProvider.setFilter(undefined);
+    }),
+    vscode.commands.registerCommand('toudou.filterHistory', async () => {
+      const value = await vscode.window.showInputBox({
+        prompt: vscode.l10n.t('Filter toudones'),
+        placeHolder: vscode.l10n.t('Type to filter by title or description...'),
+        value: historyProvider.getFilter() ?? '',
+        ignoreFocusOut: true,
+      });
+      if (value === undefined) return; // cancelled
+      historyProvider.setFilter(value.trim() || undefined);
+    }),
+    vscode.commands.registerCommand('toudou.clearHistoryFilter', () => {
+      historyProvider.setFilter(undefined);
+    }),
     vscode.commands.registerCommand('toudou.changeTodoPriority', () => changeTodoPriorityPalette()),
     vscode.commands.registerCommand(
       'toudou.changeTodoPriorityInline',
@@ -159,6 +185,17 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('toudou.openInCopilot', (todo: Todo, selected?: Todo[]) =>
       openTodoInCopilot(todo, selected),
+    ),
+    vscode.commands.registerCommand(
+      'toudou.toggleInProgress',
+      async (todo: Todo, selected?: Todo[]) => {
+        const todos = selected?.length ? selected : [todo];
+        storage.beginUndoBatch();
+        for (const t of todos) {
+          await storage.setTodoInProgress(t.id, !t.inProgress);
+        }
+        storage.endUndoBatch();
+      },
     ),
     vscode.commands.registerCommand('toudou.openSettings', () =>
       vscode.commands.executeCommand('workbench.action.openSettings', '@ext:quentin.toudou'),
