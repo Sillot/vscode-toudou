@@ -1,0 +1,89 @@
+name: Security audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+  schedule:
+    - cron: '0 8 * * 1' # Every Monday at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run npm audit
+        id: audit
+        run: |
+          if npm audit --omit=dev 2>&1 | tee audit-output.txt; then
+            echo "has_vulnerabilities=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_vulnerabilities=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Attempt auto-fix and create PR
+        if: steps.audit.outputs.has_vulnerabilities == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="fix/security-audit-$(date +%Y%m%d)"
+
+          # Check if a security fix PR already exists
+          EXISTING_PR=$(gh pr list --search "Security audit fix" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #$EXISTING_PR already exists — skipping."
+            exit 0
+          fi
+
+          # Try to fix vulnerabilities
+          npm audit fix --omit=dev || true
+
+          # Check if anything changed
+          if git diff --quiet package.json package-lock.json; then
+            echo "npm audit fix did not change anything — manual intervention needed."
+            echo "## Audit output" >> "$GITHUB_STEP_SUMMARY"
+            cat audit-output.txt >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # Create PR
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add package.json package-lock.json
+          git commit -m "fix: apply npm audit security fixes"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "fix: Security audit fix ($(date +%Y-%m-%d))" \
+            --body "Automated PR created by the security audit workflow.
+
+          This PR applies \`npm audit fix\` to resolve known vulnerabilities.
+
+          <details>
+          <summary>Audit output</summary>
+
+          \`\`\`
+          $(cat audit-output.txt)
+          \`\`\`
+
+          </details>" \
+            --base main \
+            --head "$BRANCH"

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.vsix
+.github/agents/
+.github/skills/
+.github/copilot-instructions.md
+specs/

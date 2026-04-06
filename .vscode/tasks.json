@@ -1,0 +1,76 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Ensure Container",
+      "type": "shell",
+      "command": "docker inspect --format='{{.State.Running}}' toudou-dev 2>/dev/null | grep -q true || (docker rm -f toudou-dev 2>/dev/null; docker run -d --name toudou-dev -v \"${workspaceFolder}\":/home/node/workspace -w /home/node/workspace -u node toudou-dev tail -f /dev/null && docker exec toudou-dev npm install)",
+      "problemMatcher": []
+    },
+    {
+      "label": "Compile",
+      "type": "shell",
+      "command": "docker exec toudou-dev npm run compile",
+      "group": "build",
+      "dependsOn": ["Ensure Container"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Watch",
+      "type": "shell",
+      "command": "docker exec toudou-dev npm run watch",
+      "group": "build",
+      "isBackground": true,
+      "dependsOn": ["Ensure Container"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint",
+      "type": "shell",
+      "command": "docker exec toudou-dev npm run lint",
+      "dependsOn": ["Ensure Container"],
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "Type Check",
+      "type": "shell",
+      "command": "docker exec toudou-dev npm run typecheck",
+      "dependsOn": ["Ensure Container"],
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Package",
+      "type": "shell",
+      "command": "docker exec toudou-dev npm run package",
+      "dependsOn": ["Ensure Container"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Install Extension",
+      "type": "shell",
+      "command": "docker exec toudou-dev npm run package && code --install-extension $(ls -t *.vsix | head -1) --force",
+      "dependsOn": ["Ensure Container"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Check All",
+      "type": "shell",
+      "command": "docker exec toudou-dev npm run check",
+      "dependsOn": ["Ensure Container"],
+      "problemMatcher": ["$tsc", "$eslint-stylish"]
+    },
+    {
+      "label": "Docker Build",
+      "type": "shell",
+      "command": "docker build -t toudou-dev .",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker Start",
+      "type": "shell",
+      "command": "docker rm -f toudou-dev 2>/dev/null; docker run -d --name toudou-dev -v \"${workspaceFolder}\":/home/node/workspace -w /home/node/workspace -u node toudou-dev tail -f /dev/null && docker exec toudou-dev npm install",
+      "problemMatcher": []
+    }
+  ]
+}

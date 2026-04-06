@@ -1,0 +1,674 @@
+{
+  "name": "toudou",
+  "displayName": "Toudou",
+  "description": "%description%",
+  "version": "1.0.1",
+  "publisher": "Sillot",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sillot/vscode-toudou"
+  },
+  "keywords": [
+    "todo",
+    "task",
+    "productivity",
+    "workspace",
+    "sidebar",
+    "checklist"
+  ],
+  "license": "MIT",
+  "pricing": "Free",
+  "engines": {
+    "vscode": "^1.110.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "l10n": "./l10n",
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Toudou",
+      "properties": {
+        "toudou.defaultStoragePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.defaultStoragePath.description%",
+          "scope": "window"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "toudou",
+          "title": "%viewsContainers.toudou.title%",
+          "icon": "resources/logo.svg"
+        }
+      ]
+    },
+    "views": {
+      "toudou": [
+        {
+          "id": "toudouView",
+          "name": "%views.todos.name%"
+        },
+        {
+          "id": "toudouHistoryView",
+          "name": "%views.history.name%"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "toudou.addTodo",
+        "title": "%command.addTodo%",
+        "category": "Toudou",
+        "icon": "$(add)"
+      },
+      {
+        "command": "toudou.completeTodo",
+        "title": "%command.completeTodo%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.deleteTodo",
+        "title": "%command.deleteTodo%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.addCategory",
+        "title": "%command.addCategory%",
+        "category": "Toudou",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "toudou.renameCategory",
+        "title": "%command.renameCategory%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.deleteCategory",
+        "title": "%command.deleteCategory%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.restoreTodo",
+        "title": "%command.restoreTodo%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.purgeHistory",
+        "title": "%command.purgeHistory%",
+        "category": "Toudou",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "toudou.completeTodoInline",
+        "title": "%command.completeTodoInline%",
+        "icon": "$(check)"
+      },
+      {
+        "command": "toudou.deleteTodoInline",
+        "title": "%command.deleteTodoInline%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "toudou.editTodoTitle",
+        "title": "%command.editTodoTitle%"
+      },
+      {
+        "command": "toudou.editTodoDescription",
+        "title": "%command.editTodoDescription%"
+      },
+      {
+        "command": "toudou.changeTodoCategory",
+        "title": "%command.changeTodoCategory%"
+      },
+      {
+        "command": "toudou.renameCategoryInline",
+        "title": "%command.renameCategoryInline%"
+      },
+      {
+        "command": "toudou.deleteCategoryInline",
+        "title": "%command.deleteCategoryInline%"
+      },
+      {
+        "command": "toudou.copyTodoText",
+        "title": "%command.copyTodoText%"
+      },
+      {
+        "command": "toudou.changeCategoryEmoji",
+        "title": "%command.changeCategoryEmoji%"
+      },
+      {
+        "command": "toudou.addTodoToCategory",
+        "title": "%command.addTodoToCategory%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "toudou.restoreTodoInline",
+        "title": "%command.restoreTodoInline%",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "toudou.sortByManual",
+        "title": "%command.sortByManual%"
+      },
+      {
+        "command": "toudou.sortByPriority",
+        "title": "%command.sortByPriority%"
+      },
+      {
+        "command": "toudou.sortByCategory",
+        "title": "%command.sortByCategory%"
+      },
+      {
+        "command": "toudou.sortByCategoryPriority",
+        "title": "%command.sortByCategoryPriority%"
+      },
+      {
+        "command": "toudou.changeTodoPriority",
+        "title": "%command.changeTodoPriority%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.changeTodoPriorityInline",
+        "title": "%command.changeTodoPriorityInline%"
+      },
+      {
+        "command": "toudou.openInCopilot",
+        "title": "%command.openInCopilot%",
+        "icon": "$(copilot)"
+      },
+      {
+        "command": "toudou.toggleInProgress",
+        "title": "%command.toggleInProgress%"
+      },
+      {
+        "command": "toudou.openSettings",
+        "title": "%command.openSettings%",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "toudou.openStorageFile",
+        "title": "%command.openStorageFile%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.setWorkspacePath",
+        "title": "%command.setWorkspacePath%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.clickTodo",
+        "title": "Click Todo"
+      },
+      {
+        "command": "toudou.deleteSelected",
+        "title": "Delete Selected"
+      },
+      {
+        "command": "toudou.undo",
+        "title": "%command.undo%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.redo",
+        "title": "%command.redo%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.filterTodos",
+        "title": "%command.filterTodos%",
+        "category": "Toudou",
+        "icon": "$(search)"
+      },
+      {
+        "command": "toudou.clearFilter",
+        "title": "%command.clearFilter%",
+        "icon": "$(close)"
+      },
+      {
+        "command": "toudou.filterHistory",
+        "title": "%command.filterHistory%",
+        "category": "Toudou",
+        "icon": "$(search)"
+      },
+      {
+        "command": "toudou.clearHistoryFilter",
+        "title": "%command.clearHistoryFilter%",
+        "icon": "$(close)"
+      },
+      {
+        "command": "toudou.exportTodos",
+        "title": "%command.exportTodos%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.importTodos",
+        "title": "%command.importTodos%",
+        "category": "Toudou"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "toudou.sortMenu",
+        "label": "%submenu.sortBy%",
+        "icon": "$(list-ordered)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "toudou.addTodo",
+          "when": "view == toudouView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "toudou.addCategory",
+          "when": "view == toudouView",
+          "group": "navigation@2"
+        },
+        {
+          "submenu": "toudou.sortMenu",
+          "when": "view == toudouView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "toudou.openSettings",
+          "when": "view == toudouView",
+          "group": "navigation@4"
+        },
+        {
+          "command": "toudou.filterTodos",
+          "when": "view == toudouView",
+          "group": "navigation@5"
+        },
+        {
+          "command": "toudou.purgeHistory",
+          "when": "view == toudouHistoryView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "toudou.filterHistory",
+          "when": "view == toudouHistoryView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "toudou.exportTodos",
+          "when": "view == toudouView",
+          "group": "2_io@1"
+        },
+        {
+          "command": "toudou.importTodos",
+          "when": "view == toudouView",
+          "group": "2_io@2"
+        }
+      ],
+      "toudou.sortMenu": [
+        {
+          "command": "toudou.sortByManual",
+          "group": "sort@1"
+        },
+        {
+          "command": "toudou.sortByPriority",
+          "group": "sort@2"
+        },
+        {
+          "command": "toudou.sortByCategory",
+          "group": "sort@3"
+        },
+        {
+          "command": "toudou.sortByCategoryPriority",
+          "group": "sort@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "toudou.deleteTodoInline",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "inline@1"
+        },
+        {
+          "command": "toudou.editTodoTitle",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "toudou.editTodoDescription",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "toudou.changeTodoCategory",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@3"
+        },
+        {
+          "command": "toudou.changeTodoPriorityInline",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@4"
+        },
+        {
+          "command": "toudou.toggleInProgress",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@5"
+        },
+        {
+          "command": "toudou.openInCopilot",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "3_copilot@1"
+        },
+        {
+          "command": "toudou.copyTodoText",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "toudou.exportTodos",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "2_copy@2"
+        },
+        {
+          "command": "toudou.addTodoToCategory",
+          "when": "view == toudouView && viewItem == category",
+          "group": "0_add@1"
+        },
+        {
+          "command": "toudou.exportTodos",
+          "when": "view == toudouView && viewItem == category",
+          "group": "1_category@4"
+        },
+        {
+          "command": "toudou.renameCategoryInline",
+          "when": "view == toudouView && viewItem == category",
+          "group": "1_category@1"
+        },
+        {
+          "command": "toudou.deleteCategoryInline",
+          "when": "view == toudouView && viewItem == category",
+          "group": "1_category@2"
+        },
+        {
+          "command": "toudou.changeCategoryEmoji",
+          "when": "view == toudouView && viewItem == category",
+          "group": "1_category@3"
+        },
+        {
+          "command": "toudou.addTodoToCategory",
+          "when": "view == toudouView && viewItem == category",
+          "group": "inline@1"
+        },
+        {
+          "command": "toudou.restoreTodoInline",
+          "when": "view == toudouHistoryView && viewItem == completedTodo",
+          "group": "inline@1"
+        },
+        {
+          "command": "toudou.clearFilter",
+          "when": "view == toudouView && viewItem == filterIndicator",
+          "group": "inline@1"
+        },
+        {
+          "command": "toudou.clearHistoryFilter",
+          "when": "view == toudouHistoryView && viewItem == filterIndicator",
+          "group": "inline@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "toudou.completeTodoInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.deleteTodoInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.editTodoTitle",
+          "when": "false"
+        },
+        {
+          "command": "toudou.editTodoDescription",
+          "when": "false"
+        },
+        {
+          "command": "toudou.changeTodoCategory",
+          "when": "false"
+        },
+        {
+          "command": "toudou.renameCategoryInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.deleteCategoryInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.copyTodoText",
+          "when": "false"
+        },
+        {
+          "command": "toudou.changeCategoryEmoji",
+          "when": "false"
+        },
+        {
+          "command": "toudou.addTodoToCategory",
+          "when": "false"
+        },
+        {
+          "command": "toudou.restoreTodoInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.changeTodoPriorityInline",
+          "when": "false"
+        },
+        {
+          "command": "toudou.openInCopilot",
+          "when": "false"
+        },
+        {
+          "command": "toudou.toggleInProgress",
+          "when": "false"
+        },
+        {
+          "command": "toudou.clearFilter",
+          "when": "false"
+        },
+        {
+          "command": "toudou.filterHistory",
+          "when": "false"
+        },
+        {
+          "command": "toudou.clearHistoryFilter",
+          "when": "false"
+        },
+        {
+          "command": "toudou.clickTodo",
+          "when": "false"
+        },
+        {
+          "command": "toudou.deleteSelected",
+          "when": "false"
+        },
+        {
+          "command": "toudou.undo",
+          "when": "false"
+        },
+        {
+          "command": "toudou.redo",
+          "when": "false"
+        },
+        {
+          "command": "toudou.sortByManual",
+          "when": "false"
+        },
+        {
+          "command": "toudou.sortByPriority",
+          "when": "false"
+        },
+        {
+          "command": "toudou.sortByCategory",
+          "when": "false"
+        },
+        {
+          "command": "toudou.sortByCategoryPriority",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "toudou.addTodo",
+        "key": "ctrl+shift+alt+t",
+        "mac": "cmd+shift+alt+t"
+      },
+      {
+        "command": "toudou.copyTodoText",
+        "key": "ctrl+c",
+        "mac": "cmd+c",
+        "when": "focusedView == toudouView"
+      },
+      {
+        "command": "toudou.deleteSelected",
+        "key": "delete",
+        "mac": "delete",
+        "when": "focusedView == toudouView"
+      },
+      {
+        "command": "toudou.undo",
+        "key": "ctrl+z",
+        "mac": "cmd+z",
+        "when": "focusedView == toudouView || focusedView == toudouHistoryView"
+      },
+      {
+        "command": "toudou.redo",
+        "key": "ctrl+u",
+        "mac": "cmd+u",
+        "when": "focusedView == toudouView || focusedView == toudouHistoryView"
+      },
+      {
+        "command": "toudou.redo",
+        "key": "ctrl+shift+z",
+        "mac": "cmd+shift+z",
+        "when": "focusedView == toudouView || focusedView == toudouHistoryView"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "getToudouList",
+        "displayName": "%tools.getToudouList.displayName%",
+        "description": "%tools.getToudouList.description%",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "getToudouList",
+        "modelDescription": "List all active (non-completed) todos and categories in the user's workspace. Optionally filter by category name. Returns id, title, category, priority, description and in-progress status for each todo, plus the list of existing categories.",
+        "parametersSchema": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "description": "Filter by category name",
+              "maxLength": 100
+            }
+          }
+        }
+      },
+      {
+        "name": "manageToudou",
+        "displayName": "%tools.manageToudou.displayName%",
+        "description": "%tools.manageToudou.description%",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "manageToudou",
+        "modelDescription": "Manage todos and categories in the user's workspace. Use the 'action' parameter to specify the operation: 'createTodo' (create a new todo, optionally in a category), 'completeTodo' (mark as done and move to history), 'deleteTodo' (permanently remove a todo), 'createCategory' (create a new category), 'renameCategory' (rename an existing category), 'deleteCategory' (delete an empty category). Provide additional parameters depending on the action.",
+        "parametersSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "createTodo",
+                "completeTodo",
+                "deleteTodo",
+                "createCategory",
+                "renameCategory",
+                "deleteCategory"
+              ],
+              "description": "The action to perform"
+            },
+            "title": {
+              "type": "string",
+              "description": "Title of the todo (for createTodo, completeTodo, deleteTodo)",
+              "maxLength": 500
+            },
+            "id": {
+              "type": "string",
+              "description": "ID of the todo (for completeTodo, deleteTodo — alternative to title)",
+              "maxLength": 100
+            },
+            "category": {
+              "type": "string",
+              "description": "Category name for createTodo (created automatically if it doesn't exist). Preferred over categoryId/categoryName.",
+              "maxLength": 100
+            },
+            "categoryId": {
+              "type": "string",
+              "description": "Category ID for createTodo (alternative to category)",
+              "maxLength": 100
+            },
+            "categoryName": {
+              "type": "string",
+              "description": "Category name for createTodo (alternative to category)",
+              "maxLength": 100
+            },
+            "description": {
+              "type": "string",
+              "description": "Description (for createTodo)",
+              "maxLength": 2000
+            },
+            "name": {
+              "type": "string",
+              "description": "Category name (for createCategory, renameCategory, deleteCategory)",
+              "maxLength": 100
+            },
+            "newName": {
+              "type": "string",
+              "description": "New category name (for renameCategory)",
+              "maxLength": 100
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "npm run compile -- --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts'",
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "prepackage": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "package": "vsce package",
+    "install-local": "npm run package && code --install-extension $(ls -t *.vsix | head -1) --force"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "@types/vscode": "^1.110.0",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.2.0",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0"
+  }
+}
