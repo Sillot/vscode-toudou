@@ -662,13 +662,13 @@
     "install-local": "npm run package && code --install-extension $(ls -t *.vsix | head -1) --force"
   },
   "devDependencies": {
-    "@types/node": "^25.5.2",
-    "@types/vscode": "^1.110.0",
+    "@types/node": "^25.6.0",
+    "@types/vscode": "^1.115.0",
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.28.0",
     "eslint": "^10.2.0",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.2",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.58.1"
   }
 }
