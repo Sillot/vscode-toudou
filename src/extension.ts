@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { createCategory } from './models/category';
-import { CompletedTodo, createTodo, Todo, TodoPriority } from './models/todo';
+import { CompletedTodo, createTodo, duplicateTodo, Todo, TodoPriority } from './models/todo';
 import { HistoryProvider } from './providers/historyProvider';
 import { TodoProvider } from './providers/todoProvider';
 import * as storage from './services/storageService';
@@ -298,6 +298,13 @@ export function activate(context: vscode.ExtensionContext): void {
           await storage.setTodoInProgress(t.id, !t.inProgress);
         }
         storage.endUndoBatch();
+      },
+    ),
+    vscode.commands.registerCommand(
+      'toudou.duplicateTodo',
+      async (todo: Todo, selected?: Todo[]) => {
+        const todos = selected?.length ? selected : [todo];
+        await duplicateTodoFlow(todos);
       },
     ),
     vscode.commands.registerCommand('toudou.openSettings', () =>
@@ -708,6 +715,18 @@ async function changeTodoCategory(todo: Todo, selected?: Todo[]): Promise<void> 
       const order = storage.getNextOrder(pick.id);
       await storage.moveTodoToCategory(t.id, pick.id, order);
     }
+  }
+  storage.endUndoBatch();
+}
+
+async function duplicateTodoFlow(todos: Todo[]): Promise<void> {
+  const categoryId = await pickOrCreateCategory();
+  if (categoryId === null) return; // cancelled
+
+  storage.beginUndoBatch();
+  for (const todo of todos) {
+    const order = storage.getNextOrder(categoryId);
+    await storage.addTodo(duplicateTodo(todo, categoryId, order));
   }
   storage.endUndoBatch();
 }

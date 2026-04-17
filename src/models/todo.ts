@@ -60,6 +60,19 @@ export function completeTodo(todo: Todo): CompletedTodo {
   };
 }
 
+export function duplicateTodo(source: Todo, categoryId: string | undefined, order: number): Todo {
+  return {
+    id: crypto.randomUUID(),
+    title: source.title,
+    description: source.description,
+    categoryId,
+    priority: source.priority,
+    inProgress: undefined,
+    order,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export function restoreTodo(
   completed: CompletedTodo,
   categoryId: string | undefined,

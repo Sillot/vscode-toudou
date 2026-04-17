@@ -20,6 +20,7 @@
   "command.renameCategoryInline": "Renommer la catégorie",
   "command.deleteCategoryInline": "Supprimer la catégorie",
   "command.copyTodoText": "Copier le texte",
+  "command.duplicateTodo": "Dupliquer",
   "command.changeCategoryEmoji": "Changer l'emoji",
   "command.addTodoToCategory": "Ajouter une t\u00e2che",
   "command.restoreTodoInline": "Restaurer",

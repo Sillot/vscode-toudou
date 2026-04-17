@@ -184,6 +184,10 @@
         "icon": "$(copilot)"
       },
       {
+        "command": "toudou.duplicateTodo",
+        "title": "%command.duplicateTodo%"
+      },
+      {
         "command": "toudou.toggleInProgress",
         "title": "%command.toggleInProgress%"
       },
@@ -363,6 +367,11 @@
           "group": "3_copilot@1"
         },
         {
+          "command": "toudou.duplicateTodo",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "2_copy@0"
+        },
+        {
           "command": "toudou.copyTodoText",
           "when": "view == toudouView && viewItem == todo",
           "group": "2_copy@1"
@@ -469,6 +478,10 @@
         },
         {
           "command": "toudou.openInCopilot",
+          "when": "false"
+        },
+        {
+          "command": "toudou.duplicateTodo",
           "when": "false"
         },
         {
