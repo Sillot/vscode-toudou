@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0] - 2026-04-27
+
+### Added
+
+- New command "Add Quick Todo" (`toudou.addQuickTodo`): adds a todo with title only, no category or description prompt
+- New setting `toudou.defaultAddMode` (`quick` | `complete`, default: `quick`): controls which flow the `+` button in the TreeView triggers
+- Description field at creation is now a simple input box (press Enter to skip); rich Markdown editing remains available via right-click → Edit Description
+
 ## [1.0.1] - 2026-04-06
 
 ### Fixed

@@ -2,7 +2,7 @@
   "name": "toudou",
   "displayName": "Toudou",
   "description": "%description%",
-  "version": "0.2.0",
+  "version": "1.1.0",
   "publisher": "Sillot",
   "icon": "resources/icon.png",
   "repository": {
@@ -20,7 +20,7 @@
   "license": "MIT",
   "pricing": "Free",
   "engines": {
-    "vscode": "^1.110.0"
+    "vscode": "^1.116.0"
   },
   "categories": [
     "Other"
@@ -36,6 +36,20 @@
           "type": "string",
           "default": "",
           "markdownDescription": "%config.defaultStoragePath.description%",
+          "scope": "window"
+        },
+        "toudou.defaultAddMode": {
+          "type": "string",
+          "enum": [
+            "quick",
+            "complete"
+          ],
+          "enumDescriptions": [
+            "%config.defaultAddMode.quick.description%",
+            "%config.defaultAddMode.complete.description%"
+          ],
+          "default": "quick",
+          "markdownDescription": "%config.defaultAddMode.description%",
           "scope": "window"
         }
       }
@@ -66,6 +80,17 @@
         "command": "toudou.addTodo",
         "title": "%command.addTodo%",
         "category": "Toudou",
+        "icon": "$(add)"
+      },
+      {
+        "command": "toudou.addQuickTodo",
+        "title": "%command.addQuickTodo%",
+        "category": "Toudou",
+        "icon": "$(add)"
+      },
+      {
+        "command": "toudou.addTodoDefault",
+        "title": "%command.addTodoDefault%",
         "icon": "$(add)"
       },
       {
@@ -267,7 +292,7 @@
     "menus": {
       "view/title": [
         {
-          "command": "toudou.addTodo",
+          "command": "toudou.addTodoDefault",
           "when": "view == toudouView",
           "group": "navigation@1"
         },
@@ -530,6 +555,10 @@
         },
         {
           "command": "toudou.sortByCategoryPriority",
+          "when": "false"
+        },
+        {
+          "command": "toudou.addTodoDefault",
           "when": "false"
         }
       ]

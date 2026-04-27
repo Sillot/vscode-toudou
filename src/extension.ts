@@ -74,6 +74,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('toudou.addTodo', () => addTodoFlow()),
+    vscode.commands.registerCommand('toudou.addQuickTodo', () => addQuickTodoFlow()),
+    vscode.commands.registerCommand('toudou.addTodoDefault', () => {
+      const mode = vscode.workspace
+        .getConfiguration('toudou')
+        .get<string>('defaultAddMode', 'quick');
+      return mode === 'complete' ? addTodoFlow() : addQuickTodoFlow();
+    }),
     vscode.commands.registerCommand('toudou.completeTodo', () => completeTodoPalette()),
     vscode.commands.registerCommand('toudou.deleteTodo', () => deleteTodoPalette()),
     vscode.commands.registerCommand('toudou.addCategory', () => addCategoryFlow()),
@@ -457,7 +464,12 @@ async function addTodoFlow(): Promise<void> {
   const categoryId = await pickOrCreateCategory();
   if (categoryId === null) return; // cancelled
 
-  const description = (await promptDescription(undefined)) ?? undefined;
+  const descResult = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t('Description (optional)'),
+    placeHolder: vscode.l10n.t('Press Enter to skip'),
+    ignoreFocusOut: true,
+  });
+  const description = descResult?.trim() || undefined;
 
   const order = storage.getNextOrder(categoryId);
   await storage.addTodo(createTodo(title, categoryId, description, order));
@@ -475,10 +487,31 @@ async function addTodoToCategoryFlow(categoryId: string): Promise<void> {
   });
   if (!title) return;
 
-  const description = (await promptDescription(undefined)) ?? undefined;
+  const descResult = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t('Description (optional)'),
+    placeHolder: vscode.l10n.t('Press Enter to skip'),
+    ignoreFocusOut: true,
+  });
+  const description = descResult?.trim() || undefined;
 
   const order = storage.getNextOrder(categoryId);
   await storage.addTodo(createTodo(title, categoryId, description, order));
+}
+
+async function addQuickTodoFlow(): Promise<void> {
+  const title = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t('Todo title'),
+    placeHolder: vscode.l10n.t('What needs to be done?'),
+    ignoreFocusOut: true,
+    validateInput: (v) =>
+      v.length > MAX_TITLE_LENGTH
+        ? vscode.l10n.t('Too long (max {0} characters)', MAX_TITLE_LENGTH)
+        : undefined,
+  });
+  if (!title) return;
+
+  const order = storage.getNextOrder(undefined);
+  await storage.addTodo(createTodo(title, undefined, undefined, order));
 }
 
 async function pickOrCreateCategory(): Promise<string | undefined | null> {
