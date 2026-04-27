@@ -303,6 +303,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'toudou.duplicateTodo',
       async (todo: Todo, selected?: Todo[]) => {
+        if (!todo || typeof todo.id !== 'string') return;
         const todos = selected?.length ? selected : [todo];
         await duplicateTodoFlow(todos);
       },
@@ -724,11 +725,16 @@ async function duplicateTodoFlow(todos: Todo[]): Promise<void> {
   if (categoryId === null) return; // cancelled
 
   storage.beginUndoBatch();
-  for (const todo of todos) {
-    const order = storage.getNextOrder(categoryId);
-    await storage.addTodo(duplicateTodo(todo, categoryId, order));
+  try {
+    for (const todo of todos) {
+      const order = storage.getNextOrder(categoryId);
+      await storage.addTodo(
+        duplicateTodo({ ...todo, title: todo.title.slice(0, MAX_TITLE_LENGTH) }, categoryId, order),
+      );
+    }
+  } finally {
+    storage.endUndoBatch();
   }
-  storage.endUndoBatch();
 }
 
 async function renameCategoryInline(cat: { id: string; name: string }): Promise<void> {
