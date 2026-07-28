@@ -1,6 +1,6 @@
 {
   "description": "A simple todo list in the VS Code sidebar",
-  "config.defaultStoragePath.description": "Default path to the storage file for all workspaces (relative to workspace root, e.g. `.vscode/toudou-{workspace}.json`). Use `{workspace}` as a placeholder for the workspace name. Can be overridden per workspace with [Set Workspace Storage Path](command:toudou.setWorkspacePath).",
+  "config.defaultStoragePath.description": "Default path to the storage file for all workspaces (relative to workspace root, e.g. `.vscode/toudou-{workspace}.json`). Use `{workspace}` as a placeholder for the workspace name, and `~` for your home directory.\n\nA single workspace can point elsewhere with [Set Workspace Storage Path](command:toudou.setWorkspacePath); [Reset Storage Location](command:toudou.resetStorageLocation) forgets that choice and asks again. Both are stored outside the project, so a cloned repository never decides where your todos are written.",
   "config.defaultAddMode.description": "Controls which command the `+` button in the Toudou view uses by default.",
   "config.defaultAddMode.quick.description": "Quick add: only asks for a title.",
   "config.defaultAddMode.complete.description": "Complete add: asks for title, category and description.",
@@ -44,6 +44,7 @@
   "command.openStorageFile": "Open Storage File",
   "command.setWorkspacePath": "Set Workspace Storage Path",
   "command.reloadStorage": "Reload Storage File",
+  "command.resetStorageLocation": "Reset Storage Location",
   "command.undo": "Undo",
   "command.redo": "Redo",
   "command.filterTodos": "Filter Todos",

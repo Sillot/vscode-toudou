@@ -368,6 +368,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.setWorkspacePath', () =>
       setWorkspacePathFlow(refreshAll),
     ),
+    vscode.commands.registerCommand('toudou.resetStorageLocation', () =>
+      resetStorageLocationFlow(context, refreshAll),
+    ),
     vscode.commands.registerCommand('toudou.deleteSelected', async () => {
       const selection = todoTreeView.selection;
       storage.beginUndoBatch();
@@ -1113,19 +1116,31 @@ async function applyChosenStoragePath(path: string, refreshAll: () => void): Pro
 async function promptForStorageLocation(
   context: vscode.ExtensionContext,
   refreshAll: () => void,
+  force = false,
 ): Promise<void> {
-  if (context.workspaceState.get<boolean>(STORAGE_PROMPT_KEY)) return;
-  if (storage.getWorkspaceStoragePath()) return;
-  if (vscode.workspace.getConfiguration('toudou').get<string>('defaultStoragePath')) return;
-
   const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) return;
+  if (!folders || folders.length === 0) {
+    if (force) {
+      vscode.window.showWarningMessage(
+        vscode.l10n.t('Toudou: open a folder first — there is no workspace to store todos for.'),
+      );
+    }
+    return;
+  }
 
-  const isEmpty =
-    storage.getTodos().length === 0 &&
-    storage.getCategories().length === 0 &&
-    storage.getHistory().length === 0;
-  if (!isEmpty) return;
+  // Every gate below is about not interrupting someone who never asked. When the
+  // question is the point of the command, they all go.
+  if (!force) {
+    if (context.workspaceState.get<boolean>(STORAGE_PROMPT_KEY)) return;
+    if (storage.getWorkspaceStoragePath()) return;
+    if (vscode.workspace.getConfiguration('toudou').get<string>('defaultStoragePath')) return;
+
+    const isEmpty =
+      storage.getTodos().length === 0 &&
+      storage.getCategories().length === 0 &&
+      storage.getHistory().length === 0;
+    if (!isEmpty) return;
+  }
 
   const createHere = vscode.l10n.t('Create in workspace');
   const chooseLocation = vscode.l10n.t('Choose location…');
@@ -1181,6 +1196,42 @@ async function promptForStorageLocation(
   }
 
   await remember();
+}
+
+/**
+ * Forgets where this workspace stores its todos and asks again.
+ *
+ * The escape hatch for every dead end the choice can lead to: a path typed with
+ * a typo, a synced folder that no longer exists, "Don't ask again" clicked too
+ * fast. Nothing on disk is touched — only the pointer to it.
+ */
+async function resetStorageLocationFlow(
+  context: vscode.ExtensionContext,
+  refreshAll: () => void,
+): Promise<void> {
+  const current = storage.getWorkspaceStoragePath() ?? storage.getStorageFileUri()?.fsPath;
+
+  const confirm = await vscode.window.showWarningMessage(
+    vscode.l10n.t('Forget where this workspace stores its todos?'),
+    {
+      modal: true,
+      detail: current
+        ? vscode.l10n.t(
+            'Toudou will stop using "{0}" and ask again where to store this workspace. The file itself is left untouched.',
+            current,
+          )
+        : vscode.l10n.t('Toudou will ask again where to store this workspace. No file is deleted.'),
+    },
+    vscode.l10n.t('Forget'),
+  );
+  if (confirm === undefined) return;
+
+  await context.workspaceState.update(STORAGE_PROMPT_KEY, undefined);
+  await storage.setWorkspaceStoragePath(undefined);
+  restartStorageWatcher();
+  refreshAll();
+
+  await promptForStorageLocation(context, refreshAll, true);
 }
 
 // --- Double-click detection ---

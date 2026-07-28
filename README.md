@@ -107,6 +107,7 @@ All commands are available under the **Toudou** category in the Command Palette 
 | Open Storage File          | View the raw JSON data                                     |
 | Set Workspace Storage Path | Override the storage location for this workspace           |
 | Reload Storage File        | Re-read the storage file from disk immediately             |
+| Reset Storage Location     | Forget this workspace's storage choice and ask again       |
 
 ## Settings
 
@@ -144,6 +145,8 @@ The first time you open the Toudou view in a project that has no todos yet, Toud
 | **Don't ask again** | keeps the invisible default in `workspaceStorage` |
 
 The answer is stored per workspace, outside the project. Dismissing the notification is not an answer — the question comes back next time.
+
+To change your mind later, run **Toudou: Reset Storage Location** (also in the view's `…` menu). It forgets the choice and asks again without touching the file itself — the way out of a mistyped path, a synced folder that no longer exists, or a **Don't ask again** clicked too fast.
 
 ## Sharing the storage file
 

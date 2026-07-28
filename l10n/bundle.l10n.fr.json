@@ -77,5 +77,10 @@
   "Don't ask again": "Ne plus demander",
   "Use this file": "Utiliser ce fichier",
   "Choose where Toudou stores this workspace": "Choisir où Toudou range cet espace de travail",
-  "Select an existing Toudou storage file": "Sélectionner un fichier de stockage Toudou existant"
+  "Select an existing Toudou storage file": "Sélectionner un fichier de stockage Toudou existant",
+  "Toudou: open a folder first — there is no workspace to store todos for.": "Toudou : ouvrez d'abord un dossier — il n'y a pas d'espace de travail pour lequel ranger des toudous.",
+  "Forget where this workspace stores its todos?": "Oublier où cet espace de travail range ses toudous ?",
+  "Toudou will stop using \"{0}\" and ask again where to store this workspace. The file itself is left untouched.": "Toudou cessera d'utiliser « {0} » et redemandera où ranger cet espace de travail. Le fichier lui-même n'est pas modifié.",
+  "Toudou will ask again where to store this workspace. No file is deleted.": "Toudou redemandera où ranger cet espace de travail. Aucun fichier n'est supprimé.",
+  "Forget": "Oublier"
 }

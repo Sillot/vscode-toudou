@@ -1,6 +1,6 @@
 {
   "description": "Une liste de tâches simple dans la barre latérale de VS Code",
-  "config.defaultStoragePath.description": "Chemin par défaut vers le fichier de stockage pour tous les workspaces (relatif à la racine, ex: `.vscode/toudou-{workspace}.json`). Utilisez `{workspace}` comme placeholder pour le nom du workspace. Peut être surchargé par workspace avec [Définir le chemin de stockage du workspace](command:toudou.setWorkspacePath).",
+  "config.defaultStoragePath.description": "Chemin par défaut vers le fichier de stockage pour tous les workspaces (relatif à la racine, ex: `.vscode/toudou-{workspace}.json`). Utilisez `{workspace}` comme placeholder pour le nom du workspace, et `~` pour votre dossier personnel.\n\nUn workspace peut pointer ailleurs avec [Définir le chemin de stockage du workspace](command:toudou.setWorkspacePath) ; [Réinitialiser l'emplacement de stockage](command:toudou.resetStorageLocation) oublie ce choix et repose la question. Les deux sont enregistrés hors du projet, donc un dépôt cloné ne décide jamais où vos toudous sont écrits.",
   "config.defaultAddMode.description": "Contrôle quelle commande le bouton `+` de la vue Toudou utilise par défaut.",
   "config.defaultAddMode.quick.description": "Ajout rapide : demande uniquement le titre.",
   "config.defaultAddMode.complete.description": "Ajout complet : demande le titre, la catégorie et la description.",
@@ -44,6 +44,7 @@
   "command.openStorageFile": "Ouvrir le fichier de stockage",
   "command.setWorkspacePath": "Définir le chemin de stockage du workspace",
   "command.reloadStorage": "Recharger le fichier de stockage",
+  "command.resetStorageLocation": "Réinitialiser l'emplacement de stockage",
   "command.undo": "Annuler",
   "command.redo": "Rétablir",
   "command.filterTodos": "Filtrer les tâches",

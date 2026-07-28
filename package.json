@@ -258,6 +258,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "toudou.resetStorageLocation",
+        "title": "%command.resetStorageLocation%",
+        "category": "Toudou",
+        "icon": "$(discard)"
+      },
+      {
         "command": "toudou.clickTodo",
         "title": "Click Todo"
       },
@@ -361,6 +367,21 @@
           "command": "toudou.importTodos",
           "when": "view == toudouView",
           "group": "2_io@2"
+        },
+        {
+          "command": "toudou.setWorkspacePath",
+          "when": "view == toudouView",
+          "group": "3_storage@1"
+        },
+        {
+          "command": "toudou.resetStorageLocation",
+          "when": "view == toudouView",
+          "group": "3_storage@2"
+        },
+        {
+          "command": "toudou.reloadStorage",
+          "when": "view == toudouView",
+          "group": "3_storage@3"
         }
       ],
       "toudou.sortMenu": [
