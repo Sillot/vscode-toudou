@@ -1,18 +1,27 @@
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
 import { CompletedTodo, Todo, TodoPriority } from '../models/todo';
+import {
+  applyManualOrder,
+  defaultData,
+  describeFsError,
+  errnoOf,
+  isAbsolutePath,
+  isInside,
+  isMissing,
+  parseStorageData,
+  RENAME_LOCK_CODES,
+  sameSignature,
+  serializeStorageData,
+  SortMode,
+  StorageData,
+  StorageSignature,
+  trimUndoStack,
+} from './storageCore';
 
-export type SortMode = 'manual' | 'priority' | 'category' | 'categoryPriority';
+export type { SortMode };
 
 const LEGACY_STORAGE_KEY = 'toudou.todos';
-
-interface StorageData {
-  workspace?: string;
-  categories: Category[];
-  todos: Todo[];
-  history: CompletedTodo[];
-  sortMode?: SortMode;
-}
 
 interface LegacyTodo {
   id: string;
@@ -20,76 +29,26 @@ interface LegacyTodo {
   done: boolean;
 }
 
-function defaultData(): StorageData {
-  return {
-    categories: [],
-    todos: [],
-    history: [],
-  };
-}
-
-const VALID_SORT_MODES: readonly string[] = ['manual', 'priority', 'category', 'categoryPriority'];
-
-function isValidCategory(item: unknown): item is Category {
-  if (typeof item !== 'object' || item === null) return false;
-  const o = item as Record<string, unknown>;
-  return typeof o.id === 'string' && typeof o.name === 'string' && typeof o.order === 'number';
-}
-
-function isValidTodo(item: unknown): item is Todo {
-  if (typeof item !== 'object' || item === null) return false;
-  const o = item as Record<string, unknown>;
-  return typeof o.id === 'string' && typeof o.title === 'string' && typeof o.order === 'number';
-}
-
-function isValidCompletedTodo(item: unknown): item is CompletedTodo {
-  if (typeof item !== 'object' || item === null) return false;
-  const o = item as Record<string, unknown>;
-  return (
-    typeof o.id === 'string' && typeof o.title === 'string' && typeof o.completedAt === 'string'
-  );
-}
-
-function parseStorageData(raw: string): StorageData {
-  const parsed: unknown = JSON.parse(raw);
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error('Invalid storage data');
-  }
-  const obj = Object.create(null) as Record<string, unknown>;
-  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
-    obj[key] = value;
-  }
-  return {
-    workspace: typeof obj.workspace === 'string' ? obj.workspace : undefined,
-    categories: Array.isArray(obj.categories)
-      ? (obj.categories as unknown[]).filter(isValidCategory)
-      : [],
-    todos: Array.isArray(obj.todos) ? (obj.todos as unknown[]).filter(isValidTodo) : [],
-    history: Array.isArray(obj.history)
-      ? (obj.history as unknown[]).filter(isValidCompletedTodo)
-      : [],
-    sortMode:
-      typeof obj.sortMode === 'string' && VALID_SORT_MODES.includes(obj.sortMode)
-        ? (obj.sortMode as SortMode)
-        : undefined,
-  };
-}
-
-/** Identifies the revision of the file we last read or wrote. */
-interface StorageSignature {
-  mtime: number;
-  size: number;
-}
-
 let resolvedFileUri: vscode.Uri | undefined;
 let data: StorageData = defaultData();
 let onDidChange: (() => void) | undefined;
-/** `undefined` when the file does not exist on disk. */
+/** `undefined` when the file does not exist, or when our last write could not be attributed. */
 let knownSignature: StorageSignature | undefined;
 let reportedError: string | undefined;
+/**
+ * Set while the file exists but could not be read or parsed.
+ *
+ * Writing in that state would replace real data with whatever little we hold —
+ * a truncated file caught mid-sync would cost the user everything — so every
+ * mutation is refused until a read succeeds again.
+ */
+let loadFailed = false;
+/** Keeps a multi-selection command from raising one dialog per item. */
+let blockedNotified = false;
 
 const MAX_UNDO_STACK = 50;
+/** Total characters of JSON kept in the undo stack; a shared file can be large. */
+const MAX_UNDO_CHARS = 4_000_000;
 const undoStack: string[] = [];
 const redoStack: string[] = [];
 
@@ -114,35 +73,7 @@ function queue<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
-// --- Filesystem helpers ---
-
-/** Node puts the errno at the head of the message, and VS Code keeps that message. */
-const ERRNO_PATTERN = /(?:^|[\s:(])(E[A-Z]{2,}):/;
-
-function errnoOf(error: unknown): string | undefined {
-  const message = error instanceof Error ? error.message : String(error);
-  const match = ERRNO_PATTERN.exec(message);
-  if (match) return match[1];
-  // Fall back to the VS Code error code (FileNotFound, NoPermissions…).
-  const code = (error as { code?: unknown } | undefined)?.code;
-  return typeof code === 'string' ? code : undefined;
-}
-
-function isMissing(error: unknown): boolean {
-  const code = errnoOf(error);
-  return code === 'ENOENT' || code === 'FileNotFound';
-}
-
-/**
- * Prefixes the message with the errno (EPERM, EACCES, EBUSY…): without it a disk
- * problem is indistinguishable from a bug in the extension.
- */
-function describeFsError(error: unknown): string {
-  const code = errnoOf(error);
-  const message = error instanceof Error ? error.message : String(error);
-  if (!code || message.includes(code)) return message;
-  return `${code}: ${message}`;
-}
+// --- Error reporting ---
 
 /** A locked or malformed file is hit again on every poll: only surface it once. */
 function reportError(message: string): void {
@@ -161,6 +92,33 @@ function clearError(): void {
   reportedError = undefined;
 }
 
+/**
+ * Guards every write. Reported outside {@link reportError}'s deduplication: the
+ * user just asked for a change and has to learn it did not happen, even if the
+ * underlying read error was already dismissed.
+ */
+function writesBlocked(): boolean {
+  if (!loadFailed) return false;
+  if (!blockedNotified) {
+    blockedNotified = true;
+    vscode.window.showErrorMessage(
+      vscode.l10n.t(
+        'Toudou: change not saved, the storage file could not be read. Fix or move "{0}", then run "Toudou: Reload Storage File".',
+        resolvedFileUri?.fsPath ?? '',
+      ),
+    );
+  }
+  return true;
+}
+
+/** Called from the two places a successful read is established. */
+function clearLoadFailure(): void {
+  loadFailed = false;
+  blockedNotified = false;
+}
+
+// --- Filesystem helpers ---
+
 interface ReadResult {
   /** `undefined` when the file does not exist yet. */
   content: string | undefined;
@@ -169,10 +127,11 @@ interface ReadResult {
 
 async function readStorageFile(uri: vscode.Uri): Promise<ReadResult> {
   try {
-    const [raw, stat] = await Promise.all([
-      vscode.workspace.fs.readFile(uri),
-      vscode.workspace.fs.stat(uri),
-    ]);
+    // Stat before read, never in parallel: a signature older than the content
+    // only costs one redundant reload, whereas a signature newer than the
+    // content makes us believe we are current and hides the change for good.
+    const stat = await vscode.workspace.fs.stat(uri);
+    const raw = await vscode.workspace.fs.readFile(uri);
     return {
       content: Buffer.from(raw).toString('utf-8'),
       signature: { mtime: stat.mtime, size: stat.size },
@@ -193,34 +152,48 @@ async function readSignature(uri: vscode.Uri): Promise<StorageSignature | undefi
   }
 }
 
-function sameSignature(a: StorageSignature | undefined, b: StorageSignature | undefined): boolean {
-  if (a === undefined || b === undefined) return a === b;
-  // Size is compared too: filesystems with a coarse mtime granularity can time
-  // two consecutive writes to the same tick.
-  return a.mtime === b.mtime && a.size === b.size;
+function temporaryUriFor(uri: vscode.Uri): vscode.Uri {
+  const slash = uri.path.lastIndexOf('/');
+  const folder = uri.path.slice(0, slash + 1);
+  const name = uri.path.slice(slash + 1);
+  // Dot-prefixed so the leftovers of a crashed window stay out of the way in a
+  // synced or version-controlled folder. The pid keeps two windows apart.
+  return uri.with({ path: `${folder}.${name}.${process.pid}.tmp` });
+}
+
+/** Old enough that no window can still be renaming it into place. */
+const TEMP_MAX_AGE_MS = 60_000;
+
+/** Sweeps the temporary files left behind by a window that died mid-write. */
+async function cleanStaleTemporaries(uri: vscode.Uri): Promise<void> {
+  const folder = vscode.Uri.joinPath(uri, '..');
+  const slash = uri.path.lastIndexOf('/');
+  const prefix = `.${uri.path.slice(slash + 1)}.`;
+
+  let entries: [string, vscode.FileType][];
+  try {
+    entries = await vscode.workspace.fs.readDirectory(folder);
+  } catch {
+    return;
+  }
+
+  for (const [name, type] of entries) {
+    if (type !== vscode.FileType.File) continue;
+    if (!name.startsWith(prefix) || !name.endsWith('.tmp')) continue;
+    const candidate = vscode.Uri.joinPath(folder, name);
+    try {
+      const stat = await vscode.workspace.fs.stat(candidate);
+      if (Date.now() - stat.mtime < TEMP_MAX_AGE_MS) continue;
+      await vscode.workspace.fs.delete(candidate, { useTrash: false });
+    } catch {
+      // Already gone, or held by someone else: not worth reporting.
+    }
+  }
 }
 
 /**
- * Errnos meaning "the rename could not replace the target right now" rather than
- * "you may not write here". Cloud-sync clients (Synology Drive, OneDrive,
- * Dropbox) routinely hold a transient lock on the file they are uploading, and
- * on Windows that surfaces as one of these.
- */
-const RENAME_LOCK_CODES: ReadonlySet<string> = new Set([
-  'EPERM',
-  'EACCES',
-  'EBUSY',
-  'EEXIST',
-  'ENOTEMPTY',
-  'NoPermissions',
-  'FileExists',
-  'Unavailable',
-]);
-
-/**
  * Writes through a temporary file and renames it into place, so a reader (the
- * Obsidian plugin, a sync client) never observes a half-written file. The
- * temporary name carries the pid so two windows sharing one file cannot collide.
+ * Obsidian plugin, a sync client) never observes a half-written file.
  *
  * When the rename is blocked — typically a sync client holding the target open
  * on Windows — falls back to writing the destination directly. That trades the
@@ -232,7 +205,7 @@ async function writeStorageFile(
   uri: vscode.Uri,
   content: Uint8Array,
 ): Promise<StorageSignature | undefined> {
-  const temporary = uri.with({ path: `${uri.path}.${process.pid}.tmp` });
+  const temporary = temporaryUriFor(uri);
   try {
     await vscode.workspace.fs.writeFile(temporary, content);
     await vscode.workspace.fs.rename(temporary, uri, { overwrite: true });
@@ -244,8 +217,16 @@ async function writeStorageFile(
     if (!RENAME_LOCK_CODES.has(errnoOf(error) ?? '')) throw error;
     await vscode.workspace.fs.writeFile(uri, content);
   }
-  return readSignature(uri);
+
+  const signature = await readSignature(uri);
+  // A size that does not match what we just wrote means someone replaced the
+  // file between the rename and the stat. Leaving the signature unset makes the
+  // next poll reload their revision instead of adopting it as ours.
+  if (signature && signature.size !== content.byteLength) return undefined;
+  return signature;
 }
+
+// --- Path resolution ---
 
 function getWorkspaceName(): string {
   const folders = vscode.workspace.workspaceFolders;
@@ -253,22 +234,37 @@ function getWorkspaceName(): string {
   return folders[0].name.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
 }
 
-function isAbsolutePath(p: string): boolean {
-  return p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p);
+const ACKNOWLEDGED_PATHS_KEY = 'acknowledgedAbsolutePaths';
+const MAX_ACKNOWLEDGED_PATHS = 20;
+
+/**
+ * An absolute path escapes the workspace by design — that is how the file gets
+ * shared with Obsidian or a synced folder — so it cannot be refused, only
+ * surfaced. Shown once per distinct path so a deliberate setup stays quiet.
+ */
+function warnAboutAbsolutePath(context: vscode.ExtensionContext, resolved: string): void {
+  const acknowledged = context.globalState.get<string[]>(ACKNOWLEDGED_PATHS_KEY) ?? [];
+  if (acknowledged.includes(resolved)) return;
+  void context.globalState.update(
+    ACKNOWLEDGED_PATHS_KEY,
+    [...acknowledged, resolved].slice(-MAX_ACKNOWLEDGED_PATHS),
+  );
+  vscode.window.showWarningMessage(
+    vscode.l10n.t(
+      'Toudou: storagePath points to an absolute path "{0}". Make sure you trust this location.',
+      resolved,
+    ),
+  );
 }
 
-function resolveCustomPath(customPath: string, warnOnAbsolute = false): vscode.Uri | undefined {
+function resolveCustomPath(
+  context: vscode.ExtensionContext,
+  customPath: string,
+): vscode.Uri | undefined {
   const resolved = customPath.trim().replace(/\{workspace\}/g, getWorkspaceName());
 
   if (isAbsolutePath(resolved)) {
-    if (warnOnAbsolute) {
-      vscode.window.showWarningMessage(
-        vscode.l10n.t(
-          'Toudou: storagePath points to an absolute path "{0}". Make sure you trust this location.',
-          resolved,
-        ),
-      );
-    }
+    warnAboutAbsolutePath(context, resolved);
     return vscode.Uri.file(resolved);
   }
 
@@ -277,8 +273,7 @@ function resolveCustomPath(customPath: string, warnOnAbsolute = false): vscode.U
 
   const base = workspaceFolders[0].uri;
   const target = vscode.Uri.joinPath(base, resolved);
-  const basePath = base.path.endsWith('/') ? base.path : base.path + '/';
-  if (!target.path.startsWith(basePath)) {
+  if (!isInside(base.path, target.path)) {
     vscode.window.showWarningMessage(
       vscode.l10n.t(
         'Toudou: storagePath "{0}" resolves outside the workspace. Ignoring.',
@@ -298,8 +293,7 @@ function resolveFileUri(context: vscode.ExtensionContext): vscode.Uri | undefine
   const customPath = workspaceOverride || config.get<string>('defaultStoragePath');
 
   if (customPath) {
-    const isWorkspaceSetting = !!workspaceOverride;
-    return resolveCustomPath(customPath, isWorkspaceSetting);
+    return resolveCustomPath(context, customPath);
   }
 
   if (context.storageUri) {
@@ -307,6 +301,8 @@ function resolveFileUri(context: vscode.ExtensionContext): vscode.Uri | undefine
   }
   return undefined;
 }
+
+// --- Lifecycle ---
 
 export async function initStorage(
   context: vscode.ExtensionContext,
@@ -318,13 +314,23 @@ export async function initStorage(
     onDidChange = changeCallback;
     knownSignature = undefined;
     data = defaultData();
+    clearLoadFailure();
     clearUndoHistory();
     clearError();
 
     if (!resolvedFileUri) return;
 
-    // Ensure the storage directory exists
-    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(resolvedFileUri, '..'));
+    try {
+      await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(resolvedFileUri, '..'));
+    } catch (error) {
+      // Nothing below can work without the folder, and the caller only chains a
+      // `then`: reporting here is the user's single chance to learn about it.
+      loadFailed = true;
+      reportError(
+        vscode.l10n.t('Toudou: could not create the storage folder. {0}', describeFsError(error)),
+      );
+      return;
+    }
 
     let result: ReadResult;
     try {
@@ -332,6 +338,7 @@ export async function initStorage(
     } catch (error) {
       // Unreadable, not absent. Saving now would replace real data with an empty
       // list, so leave the file alone and let the user fix it.
+      loadFailed = true;
       reportReadError(error);
       return;
     }
@@ -343,6 +350,7 @@ export async function initStorage(
       try {
         data = parseStorageData(result.content);
       } catch (error) {
+        loadFailed = true;
         reportError(
           vscode.l10n.t('Toudou: the storage file is not valid JSON. {0}', describeFsError(error)),
         );
@@ -351,6 +359,7 @@ export async function initStorage(
       knownSignature = result.signature;
     }
 
+    await cleanStaleTemporaries(resolvedFileUri);
     await deduplicateCategories();
     await backfillWorkspaceName();
   });
@@ -361,7 +370,8 @@ export async function initStorage(
  * actually changed.
  *
  * A read or parse failure keeps the current state on purpose: blanking it would
- * let the next mutation overwrite the file with an empty list.
+ * let the next mutation overwrite the file with an empty list. `loadFailed`
+ * makes that guarantee hold beyond this call by refusing writes outright.
  */
 async function reload(): Promise<boolean> {
   if (!resolvedFileUri) return false;
@@ -370,25 +380,36 @@ async function reload(): Promise<boolean> {
   try {
     result = await readStorageFile(resolvedFileUri);
   } catch (error) {
+    loadFailed = true;
     reportReadError(error);
+    return false;
+  }
+
+  if (result.content === undefined) {
+    // The file vanished — an unmounted drive, a sync client resolving a conflict
+    // by renaming it away, a user moving it. Keeping what we have means the next
+    // write restores it; blanking it would persist the disappearance instead.
+    knownSignature = undefined;
     return false;
   }
 
   let next: StorageData;
   try {
-    next = result.content === undefined ? defaultData() : parseStorageData(result.content);
+    next = parseStorageData(result.content);
   } catch (error) {
+    loadFailed = true;
     reportError(
       vscode.l10n.t('Toudou: the storage file is not valid JSON. {0}', describeFsError(error)),
     );
     return false;
   }
 
-  const before = JSON.stringify(data);
+  const before = serializeStorageData(data);
   data = next;
   knownSignature = result.signature;
+  clearLoadFailure();
   clearError();
-  return JSON.stringify(data) !== before;
+  return serializeStorageData(data) !== before;
 }
 
 /**
@@ -511,11 +532,11 @@ function getRawWorkspaceName(): string | undefined {
 }
 
 async function save(): Promise<void> {
-  if (!resolvedFileUri) return;
+  if (!resolvedFileUri || loadFailed) return;
   const name = getRawWorkspaceName();
   if (name) data.workspace = name;
 
-  const content = Buffer.from(JSON.stringify(data, null, 2), 'utf-8');
+  const content = Buffer.from(serializeStorageData(data), 'utf-8');
   try {
     knownSignature = await writeStorageFile(resolvedFileUri, content);
     clearError();
@@ -541,15 +562,26 @@ async function save(): Promise<void> {
  * another window, another machine through a synced folder — is never clobbered:
  * the mutation is applied on top of the freshest state instead of a stale
  * in-memory copy. `apply` must therefore look up the entities it touches itself;
- * a reference captured before the call belongs to the previous state object.
+ * a reference captured before the call belongs to the previous state object, and
+ * so does any index or order computed from it.
  *
  * Returning `false` from `apply` aborts the write (nothing found to change).
  */
 async function mutate(apply: () => boolean | void): Promise<void> {
   await queue(async () => {
-    await refreshIfChangedOnDisk();
-    const snapshot = JSON.stringify(data);
-    if (apply() === false) return;
+    const external = await refreshIfChangedOnDisk();
+    // Whoever bails out early still owes the views a refresh: the re-read above
+    // already consumed the external change and updated the signature, so the
+    // poll loop will not report it a second time.
+    if (writesBlocked()) {
+      if (external) onDidChange?.();
+      return;
+    }
+    const snapshot = serializeStorageData(data);
+    if (apply() === false) {
+      if (external) onDidChange?.();
+      return;
+    }
     commitUndo(snapshot);
     await save();
   });
@@ -577,9 +609,7 @@ function commitUndo(snapshot: string): void {
 
 function pushUndoSnapshot(snapshot: string): void {
   undoStack.push(snapshot);
-  if (undoStack.length > MAX_UNDO_STACK) {
-    undoStack.shift();
-  }
+  trimUndoStack(undoStack, MAX_UNDO_STACK, MAX_UNDO_CHARS);
   redoStack.length = 0;
 }
 
@@ -600,10 +630,13 @@ export function undo(): Promise<boolean> {
   return queue(async () => {
     // May clear the stacks: a snapshot taken before an external edit would
     // silently revert that edit too.
-    await refreshIfChangedOnDisk();
-    const snapshot = undoStack.pop();
-    if (snapshot === undefined) return false;
-    redoStack.push(JSON.stringify(data));
+    const external = await refreshIfChangedOnDisk();
+    const snapshot = writesBlocked() ? undefined : undoStack.pop();
+    if (snapshot === undefined) {
+      if (external) onDidChange?.();
+      return false;
+    }
+    redoStack.push(serializeStorageData(data));
     data = parseStorageData(snapshot);
     await save();
     return true;
@@ -612,10 +645,13 @@ export function undo(): Promise<boolean> {
 
 export function redo(): Promise<boolean> {
   return queue(async () => {
-    await refreshIfChangedOnDisk();
-    const snapshot = redoStack.pop();
-    if (snapshot === undefined) return false;
-    undoStack.push(JSON.stringify(data));
+    const external = await refreshIfChangedOnDisk();
+    const snapshot = writesBlocked() ? undefined : redoStack.pop();
+    if (snapshot === undefined) {
+      if (external) onDidChange?.();
+      return false;
+    }
+    undoStack.push(serializeStorageData(data));
     data = parseStorageData(snapshot);
     await save();
     return true;
@@ -681,10 +717,7 @@ export async function deleteCategory(id: string): Promise<void> {
 
 export async function reorderCategories(orderedIds: string[]): Promise<void> {
   await mutate(() => {
-    for (let i = 0; i < orderedIds.length; i++) {
-      const cat = data.categories.find((c) => c.id === orderedIds[i]);
-      if (cat) cat.order = i;
-    }
+    applyManualOrder(data.categories, orderedIds);
   });
 }
 
@@ -771,28 +804,35 @@ export async function completeTodoById(id: string): Promise<void> {
   });
 }
 
-export async function reorderTodos(
-  categoryId: string | undefined,
-  orderedIds: string[],
-): Promise<void> {
-  await mutate(() => {
-    for (let i = 0; i < orderedIds.length; i++) {
-      const todo = data.todos.find((t) => t.id === orderedIds[i] && t.categoryId === categoryId);
-      if (todo) todo.order = i;
-    }
-  });
-}
-
-export async function moveTodoToCategory(
+/**
+ * Moves a todo into `targetCategoryId`, just before `beforeTodoId` — or to the
+ * end when it is undefined — and renumbers the whole target group.
+ *
+ * Takes ids rather than an index on purpose: the caller measured its indices
+ * before {@link mutate} re-read the file, so anything positional it computed is
+ * already stale.
+ */
+export async function moveTodoBefore(
   todoId: string,
   targetCategoryId: string | undefined,
-  order: number,
+  beforeTodoId: string | undefined,
 ): Promise<void> {
   await mutate(() => {
+    // Dropping a todo onto itself asks for nothing.
+    if (beforeTodoId === todoId) return false;
     const todo = data.todos.find((t) => t.id === todoId);
     if (!todo) return false;
+
     todo.categoryId = targetCategoryId;
-    todo.order = order;
+    const group = data.todos
+      .filter((t) => t.categoryId === targetCategoryId)
+      .sort((a, b) => a.order - b.order);
+
+    const orderedIds = group.filter((t) => t.id !== todoId).map((t) => t.id);
+    const insertAt = beforeTodoId ? orderedIds.indexOf(beforeTodoId) : -1;
+    orderedIds.splice(insertAt === -1 ? orderedIds.length : insertAt, 0, todoId);
+
+    applyManualOrder(group, orderedIds);
   });
 }
 
@@ -837,8 +877,11 @@ export async function purgeHistory(): Promise<void> {
 }
 
 export function getNextOrder(categoryId: string | undefined): number {
-  const todos = categoryId === undefined ? getUncategorizedTodos() : getTodosByCategory(categoryId);
-  return todos.length > 0 ? Math.max(...todos.map((t) => t.order)) + 1 : 0;
+  let max = -1;
+  for (const todo of data.todos) {
+    if (todo.categoryId === categoryId && todo.order > max) max = todo.order;
+  }
+  return max + 1;
 }
 
 // --- Sort Mode ---
@@ -874,6 +917,15 @@ export async function setTodoInProgress(id: string, inProgress: boolean): Promis
     const todo = data.todos.find((t) => t.id === id);
     if (!todo) return false;
     todo.inProgress = inProgress || undefined;
+  });
+}
+
+/** Flips the flag from whatever the file says now, not from the caller's copy. */
+export async function toggleTodoInProgress(id: string): Promise<void> {
+  await mutate(() => {
+    const todo = data.todos.find((t) => t.id === id);
+    if (!todo) return false;
+    todo.inProgress = todo.inProgress ? undefined : true;
   });
 }
 
@@ -1037,6 +1089,15 @@ export async function importData(exportData: ExportData): Promise<number> {
       return created.id;
     };
 
+    // Orders are handed out from a running counter: rescanning every todo for
+    // each of the 10 000 an import may carry would freeze the extension host.
+    const nextOrder = new Map<string | undefined, number>();
+    const takeOrder = (categoryId: string | undefined): number => {
+      const order = nextOrder.get(categoryId) ?? getNextOrder(categoryId);
+      nextOrder.set(categoryId, order + 1);
+      return order;
+    };
+
     // Create declared categories that don't exist yet
     for (const exportCat of exportData.categories) {
       ensureCategory(exportCat.name, exportCat.emoji);
@@ -1058,7 +1119,7 @@ export async function importData(exportData: ExportData): Promise<number> {
         categoryId,
         priority: exportTodo.priority,
         inProgress: undefined,
-        order: getNextOrder(categoryId),
+        order: takeOrder(categoryId),
         createdAt: new Date().toISOString(),
       });
       count++;

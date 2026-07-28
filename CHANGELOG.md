@@ -7,7 +7,23 @@
 - **Data loss when the storage file is shared.** Every mutation now re-reads the file before applying and saving, so the first action taken in VS Code after an external edit no longer overwrites it. Todos added from the Obsidian plugin, another VS Code window, or another machine through a synced folder are preserved.
 - Todos created outside VS Code now appear in the tree without reloading the window.
 - A failed save no longer shows the change as if it had been persisted: the file is re-read to revert the mutation on screen, undo/redo history is cleared, and the error message carries the errno (`EPERM: …`).
-- A failed read no longer blanks the in-memory list, which could let the next save overwrite the file with an empty one.
+- A failed read no longer blanks the in-memory list, which could let the next save overwrite the file with an empty one. Writes are now refused outright until a read succeeds again, so a file caught truncated mid-sync can no longer be replaced by the little that was salvaged from it.
+- The storage file temporarily disappearing — an unmounted drive, a sync client resolving a conflict — no longer empties the views and no longer lets the next write persist that emptiness.
+- Fields and entries written by another client are preserved instead of being deleted on the next save. Anything Toudou does not recognize (unknown top-level keys, todos in a shape it cannot validate) is round-tripped untouched.
+- The views no longer stay stale after an action that turned out to change nothing (sorting by the current mode, deleting an already-deleted todo): the external change consumed by the re-read is now reported.
+- An external write landing between two of our own filesystem calls no longer masks the change until the next edit.
+- A storage folder that cannot be created is now reported, instead of silently leaving the extension with no views and no watcher.
+- Drag and drop positions a todo against the file's current contents rather than the tree it was dragged from, in one write instead of two, and can no longer give two todos the same position.
+- Toggling "in progress" reads the current state from the file instead of the clicked tree item.
+- Importing a large file no longer freezes the window.
+- An error raised mid-batch no longer disables undo recording for the rest of the session.
+
+### Security
+
+- Settings can no longer be imposed by a workspace. `toudou.defaultStoragePath` is now `machine`-scoped (user or remote settings, one value per machine since a path means something different on each); `toudou.defaultAddMode`, `toudou.watchExternalChanges` and `toudou.watchIntervalSeconds` are `application`-scoped (user settings only). None of them can come from a committed `.vscode/settings.json`. Previously a repository could point the storage file at an arbitrary absolute path, which was then written on activation. Overriding the path for one project still works through **Toudou: Set Workspace Storage Path**, which stores it outside the project. In a remote window the Settings editor lists this setting under the **Remote** tab.
+- The absolute-path warning is shown whatever the setting it comes from, once per distinct path.
+- The poll interval is validated before reaching `setInterval`, so a hand-edited value cannot turn the check into a busy loop.
+- Temporary files are dot-prefixed, and the ones left behind by a window that died mid-write are swept at startup.
 
 ### Added
 

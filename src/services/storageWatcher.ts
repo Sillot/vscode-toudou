@@ -1,13 +1,16 @@
 import * as vscode from 'vscode';
+import { clampWatchIntervalSeconds } from './storageCore';
 import { checkForExternalChanges, getStorageFileUri } from './storageService';
-
-const DEFAULT_INTERVAL_SECONDS = 3;
 
 let fileWatcher: vscode.FileSystemWatcher | undefined;
 let watcherListeners: vscode.Disposable[] = [];
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let notifyChange: (() => void) | undefined;
 let checking = false;
+let checkGuardTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** How long a check may hold the guard before later polls are allowed through. */
+const CHECK_GUARD_TIMEOUT_MS = 30_000;
 
 /**
  * Watches the storage file for edits made outside this window — the Obsidian
@@ -37,8 +40,8 @@ export function restartStorageWatcher(): void {
   // The watcher is only a low-latency hint: the file typically lives in a synced
   // folder (Synology Drive, OneDrive…) where no reliable event ever arrives.
   // Polling is the source of truth.
-  const seconds = config.get<number>('watchIntervalSeconds', DEFAULT_INTERVAL_SECONDS);
-  pollTimer = setInterval(() => void check(), Math.max(1, seconds) * 1000);
+  const seconds = clampWatchIntervalSeconds(config.get('watchIntervalSeconds'));
+  pollTimer = setInterval(() => void check(), seconds * 1000);
 }
 
 function startFileWatcher(uri: vscode.Uri): void {
@@ -65,17 +68,32 @@ function startFileWatcher(uri: vscode.Uri): void {
   ];
 }
 
+function releaseGuard(): void {
+  checking = false;
+  if (checkGuardTimer !== undefined) {
+    clearTimeout(checkGuardTimer);
+    checkGuardTimer = undefined;
+  }
+}
+
 async function check(): Promise<void> {
   // A stat on a sleeping network drive can outlive the poll interval.
   if (checking) return;
   checking = true;
+  // …and a stat on a drive that never wakes up can outlive everything. Release
+  // the guard on a timer so one hung call does not end the polling for good.
+  checkGuardTimer = setTimeout(() => {
+    checking = false;
+    checkGuardTimer = undefined;
+  }, CHECK_GUARD_TIMEOUT_MS);
+
   try {
     if (await checkForExternalChanges()) notifyChange?.();
   } catch {
     // Read problems are already surfaced by the storage service; a rejection
     // escaping the interval would only add noise to the extension host log.
   } finally {
-    checking = false;
+    releaseGuard();
   }
 }
 
@@ -88,4 +106,5 @@ function stopWatching(): void {
     clearInterval(pollTimer);
     pollTimer = undefined;
   }
+  releaseGuard();
 }

@@ -36,7 +36,7 @@
           "type": "string",
           "default": "",
           "markdownDescription": "%config.defaultStoragePath.description%",
-          "scope": "window"
+          "scope": "machine"
         },
         "toudou.defaultAddMode": {
           "type": "string",
@@ -50,13 +50,13 @@
           ],
           "default": "quick",
           "markdownDescription": "%config.defaultAddMode.description%",
-          "scope": "window"
+          "scope": "application"
         },
         "toudou.watchExternalChanges": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "%config.watchExternalChanges.description%",
-          "scope": "window"
+          "scope": "application"
         },
         "toudou.watchIntervalSeconds": {
           "type": "number",
@@ -66,9 +66,11 @@
             5,
             10
           ],
+          "minimum": 1,
+          "maximum": 3600,
           "default": 3,
           "markdownDescription": "%config.watchIntervalSeconds.description%",
-          "scope": "window"
+          "scope": "application"
         }
       }
     },
@@ -718,11 +720,13 @@
     "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
     "watch": "npm run compile -- --watch",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "format": "prettier --write 'src/**/*.ts'",
-    "format:check": "prettier --check 'src/**/*.ts'",
-    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "lint": "eslint src/ test/",
+    "lint:fix": "eslint src/ test/ --fix",
+    "format": "prettier --write '{src,test}/**/*.ts'",
+    "format:check": "prettier --check '{src,test}/**/*.ts'",
+    "pretest": "esbuild test/storageCore.test.ts --bundle --outdir=dist-test --format=cjs --platform=node",
+    "test": "node --test dist-test/",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
     "prepackage": "npm run check && esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
     "package": "vsce package",
     "install-local": "npm run package && code --install-extension $(ls -t *.vsix | head -1) --force"

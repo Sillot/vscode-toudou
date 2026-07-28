@@ -32,20 +32,27 @@ export function activate(context: vscode.ExtensionContext): void {
     updateBadge();
   };
 
-  // Init storage then register everything
-  storage.initStorage(context, refreshAll).then(() => {
-    refreshAll();
-    initStorageWatcher(context, refreshAll);
-  });
+  // Init storage then register everything. The catch matters: without it a
+  // storage folder that cannot be created leaves the views unrefreshed and the
+  // watcher unstarted, with nothing but an unhandled rejection to show for it.
+  const initStorage = () =>
+    storage
+      .initStorage(context, refreshAll)
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(
+          vscode.l10n.t('Toudou: could not initialize storage. {0}', message),
+        );
+      })
+      .finally(() => refreshAll());
+
+  void initStorage().then(() => initStorageWatcher(context, refreshAll));
 
   // Re-init storage when settings change
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('toudou.defaultStoragePath')) {
-        storage.initStorage(context, refreshAll).then(() => {
-          refreshAll();
-          restartStorageWatcher();
-        });
+        void initStorage().then(() => restartStorageWatcher());
       } else if (
         e.affectsConfiguration('toudou.watchExternalChanges') ||
         e.affectsConfiguration('toudou.watchIntervalSeconds')
@@ -198,10 +205,13 @@ export function activate(context: vscode.ExtensionContext): void {
             ? [todo]
             : todoTreeView.selection.filter((s): s is Todo => 'title' in s);
         storage.beginUndoBatch();
-        for (const t of todos) {
-          await storage.deleteTodo(t.id);
+        try {
+          for (const t of todos) {
+            await storage.deleteTodo(t.id);
+          }
+        } finally {
+          storage.endUndoBatch();
         }
-        storage.endUndoBatch();
       },
     ),
     vscode.commands.registerCommand('toudou.editTodoTitle', (todo: Todo) => editTodoTitle(todo)),
@@ -241,10 +251,13 @@ export function activate(context: vscode.ExtensionContext): void {
       async (cat: { id: string }, selected?: { id: string }[]) => {
         const cats = selected?.length ? selected : [cat];
         storage.beginUndoBatch();
-        for (const c of cats) {
-          await storage.deleteCategory(c.id);
+        try {
+          for (const c of cats) {
+            await storage.deleteCategory(c.id);
+          }
+        } finally {
+          storage.endUndoBatch();
         }
-        storage.endUndoBatch();
       },
     ),
     vscode.commands.registerCommand('toudou.changeCategoryEmoji', (cat) =>
@@ -258,10 +271,13 @@ export function activate(context: vscode.ExtensionContext): void {
       async (completed: CompletedTodo, selected?: CompletedTodo[]) => {
         const items = selected?.length ? selected : [completed];
         storage.beginUndoBatch();
-        for (const item of items) {
-          await storage.restoreFromHistory(item.id);
+        try {
+          for (const item of items) {
+            await storage.restoreFromHistory(item.id);
+          }
+        } finally {
+          storage.endUndoBatch();
         }
-        storage.endUndoBatch();
       },
     ),
     vscode.commands.registerCommand('toudou.sortByManual', () => storage.setSortMode('manual')),
@@ -309,10 +325,15 @@ export function activate(context: vscode.ExtensionContext): void {
       async (todo: Todo, selected?: Todo[]) => {
         const todos = selected?.length ? selected : [todo];
         storage.beginUndoBatch();
-        for (const t of todos) {
-          await storage.setTodoInProgress(t.id, !t.inProgress);
+        try {
+          for (const t of todos) {
+            // The flag is flipped from the file, not from `t`: the tree item was
+            // built before the storage re-read that precedes the write.
+            await storage.toggleTodoInProgress(t.id);
+          }
+        } finally {
+          storage.endUndoBatch();
         }
-        storage.endUndoBatch();
       },
     ),
     vscode.commands.registerCommand(
@@ -347,14 +368,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.deleteSelected', async () => {
       const selection = todoTreeView.selection;
       storage.beginUndoBatch();
-      for (const item of selection) {
-        if ('title' in item) {
-          await storage.deleteTodo((item as Todo).id);
-        } else if ('name' in item) {
-          await storage.deleteCategory((item as { id: string }).id);
+      try {
+        for (const item of selection) {
+          if ('title' in item) {
+            await storage.deleteTodo((item as Todo).id);
+          } else if ('name' in item) {
+            await storage.deleteCategory((item as { id: string }).id);
+          }
         }
+      } finally {
+        storage.endUndoBatch();
       }
-      storage.endUndoBatch();
     }),
     vscode.commands.registerCommand('toudou.clickTodo', (todo: Todo) => handleTodoClick(todo)),
   );
@@ -759,13 +783,17 @@ async function changeTodoCategory(todo: Todo, selected?: Todo[]): Promise<void> 
   if (!pick) return;
 
   storage.beginUndoBatch();
-  for (const t of todos) {
-    if (t.categoryId !== pick.id) {
-      const order = storage.getNextOrder(pick.id);
-      await storage.moveTodoToCategory(t.id, pick.id, order);
+  try {
+    for (const t of todos) {
+      if (t.categoryId !== pick.id) {
+        // No target todo: appended to the end of the category, positioned
+        // against the file's current contents rather than this stale list.
+        await storage.moveTodoBefore(t.id, pick.id, undefined);
+      }
     }
+  } finally {
+    storage.endUndoBatch();
   }
-  storage.endUndoBatch();
 }
 
 async function duplicateTodoFlow(todos: Todo[]): Promise<void> {
@@ -1013,12 +1041,15 @@ async function openTodoInCopilot(todo: Todo, selected?: Todo[]): Promise<void> {
   const todos = selected?.length ? selected : [todo];
 
   storage.beginUndoBatch();
-  for (const t of todos) {
-    if (!t.inProgress) {
-      await storage.setTodoInProgress(t.id, true);
+  try {
+    for (const t of todos) {
+      if (!t.inProgress) {
+        await storage.setTodoInProgress(t.id, true);
+      }
     }
+  } finally {
+    storage.endUndoBatch();
   }
-  storage.endUndoBatch();
 
   const todosText = todos
     .map((t) => {

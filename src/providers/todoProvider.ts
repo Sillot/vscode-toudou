@@ -6,14 +6,12 @@ import type { SortMode } from '../services/storageService';
 import {
   getCategories,
   getCategoryById,
-  getNextOrder,
   getSortMode,
   getTodos,
   getTodosByCategory,
   getUncategorizedTodos,
-  moveTodoToCategory,
+  moveTodoBefore,
   reorderCategories,
-  reorderTodos,
 } from '../services/storageService';
 
 const DRAG_MIME = 'application/vnd.code.tree.toudouView';
@@ -222,53 +220,23 @@ export class TodoProvider
   }
 
   private async handleTodoDrop(source: Todo, target: TreeNode | undefined): Promise<void> {
-    // Drop on empty area → make uncategorized
+    // Drop on empty area → move to the end of the uncategorized group
     if (!target) {
-      const order = getNextOrder(undefined);
-      await moveTodoToCategory(source.id, undefined, order);
+      await moveTodoBefore(source.id, undefined, undefined);
       return;
     }
 
+    // Drop onto a category → move to the end of that category
     if (isCategory(target)) {
-      // Drop onto a category → move to end of that category
-      const order = getNextOrder(target.id);
-      await moveTodoToCategory(source.id, target.id, order);
+      await moveTodoBefore(source.id, target.id, undefined);
       return;
     }
 
-    // Drop onto another todo → insert before it
+    // Drop onto another todo → insert before it. A single call so the move and
+    // the renumbering share one read-modify-write and one undo step, and so the
+    // positions are computed from the file rather than from this stale tree.
     const targetTodo = target as Todo;
-    const targetCategoryId = targetTodo.categoryId;
-
-    if (source.categoryId === targetCategoryId) {
-      // Same group: reorder
-      const todos =
-        targetCategoryId === undefined
-          ? getUncategorizedTodos().filter((t) => t.id !== source.id)
-          : getTodosByCategory(targetCategoryId).filter((t) => t.id !== source.id);
-      const targetIdx = todos.findIndex((t) => t.id === targetTodo.id);
-      todos.splice(targetIdx, 0, source);
-      await reorderTodos(
-        targetCategoryId,
-        todos.map((t) => t.id),
-      );
-    } else {
-      // Different group: move then reorder
-      const targetTodos =
-        targetCategoryId === undefined
-          ? getUncategorizedTodos()
-          : getTodosByCategory(targetCategoryId);
-      const targetIdx = targetTodos.findIndex((t) => t.id === targetTodo.id);
-      await moveTodoToCategory(source.id, targetCategoryId, targetIdx);
-      const updatedTodos =
-        targetCategoryId === undefined
-          ? getUncategorizedTodos()
-          : getTodosByCategory(targetCategoryId);
-      await reorderTodos(
-        targetCategoryId,
-        updatedTodos.map((t) => t.id),
-      );
-    }
+    await moveTodoBefore(source.id, targetTodo.categoryId, targetTodo.id);
   }
 
   private getFilterItem(filter: FilterIndicator): vscode.TreeItem {

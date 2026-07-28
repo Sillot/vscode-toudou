@@ -64,5 +64,10 @@
   "Toudou: the storage file is not valid JSON. {0}": "Toudou : le fichier de stockage n'est pas un JSON valide. {0}",
   "Toudou: could not save the storage file. {0}": "Toudou : impossible d'enregistrer le fichier de stockage. {0}",
   "Storage file reloaded.": "Fichier de stockage rechargé.",
-  "Storage file is already up to date.": "Le fichier de stockage est déjà à jour."
+  "Storage file is already up to date.": "Le fichier de stockage est déjà à jour.",
+  "Toudou: change not saved, the storage file could not be read. Fix or move \"{0}\", then run \"Toudou: Reload Storage File\".": "Toudou : modification non enregistrée, le fichier de stockage n'a pas pu être lu. Corrigez ou déplacez « {0} », puis lancez « Toudou : Recharger le fichier de stockage ».",
+  "Toudou: could not create the storage folder. {0}": "Toudou : impossible de créer le dossier de stockage. {0}",
+  "Toudou: could not initialize storage. {0}": "Toudou : impossible d'initialiser le stockage. {0}",
+  "Toudou: storagePath points to an absolute path \"{0}\". Make sure you trust this location.": "Toudou : storagePath pointe vers un chemin absolu « {0} ». Assurez-vous de faire confiance à cet emplacement.",
+  "Toudou: storagePath \"{0}\" resolves outside the workspace. Ignoring.": "Toudou : storagePath « {0} » pointe en dehors de l'espace de travail. Ignoré."
 }

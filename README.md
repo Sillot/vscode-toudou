@@ -117,10 +117,16 @@ All commands are available under the **Toudou** category in the Command Palette 
 | `toudou.watchExternalChanges`  | Reload the storage file when another app edits it. Default: `true`.                          |
 | `toudou.watchIntervalSeconds`  | How often the file is checked for external changes: 2, 3, 5 or 10. Default: `3`.             |
 
+`toudou.defaultStoragePath` is **machine-scoped**: it can only be set in your user or remote settings, never by a workspace, since it decides where the extension writes. In a remote window (WSL, SSH, Codespaces) the Settings editor lists it under the **Remote** tab rather than **User** — the machine it applies to is the remote one, and a path means something different on each side.
+
+The three other settings are **application-scoped**: they live in your user settings only, shared by every window, and no workspace can change them.
+
+To point one project at a different file, use the **Toudou: Set Workspace Storage Path** command rather than a workspace setting: it stores the override outside the project, so cloning a repository never changes where your todos are written.
+
 By default, Toudou stores its data in VS Code's `workspaceStorage` directory, completely outside your project. You can override this with `toudou.defaultStoragePath`:
 
 - **Relative path** — resolved from the workspace root (e.g. `.vscode/toudou.json`). Must stay inside the workspace.
-- **Absolute path** — any location on disk (a warning is shown).
+- **Absolute path** — any location on disk (a warning is shown once per path).
 - **`{workspace}` placeholder** — replaced with a sanitized version of the workspace folder name (e.g. `~/.toudou/{workspace}.json`).
 
 You can also set a **per-workspace** path via the command **Toudou: Set Workspace Storage Path**, which takes precedence over the global setting.
@@ -129,7 +135,9 @@ You can also set a **per-workspace** path via the command **Toudou: Set Workspac
 
 The storage file can be shared with the [Obsidian Toudou plugin](https://github.com/Sillot/obsidian-toudou), another VS Code window, or another machine through a synced folder (Synology Drive, OneDrive…) — the on-disk format is identical.
 
-Every change is applied on top of a fresh read of the file, and saved through a temporary file renamed into place, so concurrent edits do not overwrite each other. External changes appear in the tree within a few seconds without reloading the window; **Toudou: Reload Storage File** forces an immediate re-read.
+Every change is applied on top of a fresh read of the file and saved through a temporary file renamed into place, so a write never rests on a stale copy and a reader never sees a half-written file. Anything Toudou does not recognize — keys or entries written by another client — is preserved as-is instead of being dropped on the next save. External changes appear in the tree within a few seconds without reloading the window; **Toudou: Reload Storage File** forces an immediate re-read.
+
+Two windows on the same machine are serialized by that read-modify-write, so neither loses the other's edit. Across machines the last writer still wins: the sync client, not Toudou, decides which revision lands, and a simultaneous edit on both ends may produce a conflict copy.
 
 ## Development
 
@@ -144,7 +152,8 @@ Open in VS Code with Dev Containers to get the full dockerized dev environment.
 | `npm run typecheck` | Run TypeScript type checking                           |
 | `npm run lint`      | Run ESLint                                             |
 | `npm run format`    | Format with Prettier                                   |
-| `npm run check`     | Run typecheck + lint + format check                    |
+| `npm test`          | Run the storage unit tests                             |
+| `npm run check`     | Run typecheck + lint + format check + tests            |
 | `npm run package`   | Package as `.vsix` (runs check + minified build first) |
 
 ### Debug
