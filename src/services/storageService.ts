@@ -1,3 +1,4 @@
+import { homedir } from 'node:os';
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
 import { CompletedTodo, Todo, TodoPriority } from '../models/todo';
@@ -6,6 +7,7 @@ import {
   defaultData,
   describeFsError,
   errnoOf,
+  expandHome,
   isAbsolutePath,
   isInside,
   isMissing,
@@ -237,6 +239,15 @@ function getWorkspaceName(): string {
 const ACKNOWLEDGED_PATHS_KEY = 'acknowledgedAbsolutePaths';
 const MAX_ACKNOWLEDGED_PATHS = 20;
 
+function rememberAcknowledgedPath(context: vscode.ExtensionContext, resolved: string): void {
+  const acknowledged = context.globalState.get<string[]>(ACKNOWLEDGED_PATHS_KEY) ?? [];
+  if (acknowledged.includes(resolved)) return;
+  void context.globalState.update(
+    ACKNOWLEDGED_PATHS_KEY,
+    [...acknowledged, resolved].slice(-MAX_ACKNOWLEDGED_PATHS),
+  );
+}
+
 /**
  * An absolute path escapes the workspace by design — that is how the file gets
  * shared with Obsidian or a synced folder — so it cannot be refused, only
@@ -245,10 +256,7 @@ const MAX_ACKNOWLEDGED_PATHS = 20;
 function warnAboutAbsolutePath(context: vscode.ExtensionContext, resolved: string): void {
   const acknowledged = context.globalState.get<string[]>(ACKNOWLEDGED_PATHS_KEY) ?? [];
   if (acknowledged.includes(resolved)) return;
-  void context.globalState.update(
-    ACKNOWLEDGED_PATHS_KEY,
-    [...acknowledged, resolved].slice(-MAX_ACKNOWLEDGED_PATHS),
-  );
+  rememberAcknowledgedPath(context, resolved);
   vscode.window.showWarningMessage(
     vscode.l10n.t(
       'Toudou: storagePath points to an absolute path "{0}". Make sure you trust this location.',
@@ -257,11 +265,23 @@ function warnAboutAbsolutePath(context: vscode.ExtensionContext, resolved: strin
   );
 }
 
+/**
+ * Marks a path as already vetted. Call it for a location the user picked in a
+ * dialog: warning them about a folder they just chose themselves is noise.
+ */
+export function acknowledgeStoragePath(path: string): void {
+  if (!extensionContext) return;
+  rememberAcknowledgedPath(extensionContext, path.trim());
+}
+
 function resolveCustomPath(
   context: vscode.ExtensionContext,
   customPath: string,
 ): vscode.Uri | undefined {
-  const resolved = customPath.trim().replace(/\{workspace\}/g, getWorkspaceName());
+  const resolved = expandHome(
+    customPath.trim().replace(/\{workspace\}/g, getWorkspaceName()),
+    homedir(),
+  );
 
   if (isAbsolutePath(resolved)) {
     warnAboutAbsolutePath(context, resolved);

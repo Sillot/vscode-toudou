@@ -207,6 +207,20 @@ export const RENAME_LOCK_CODES: ReadonlySet<string> = new Set([
 
 // --- Paths ---
 
+/**
+ * Expands a leading `~` to the home directory.
+ *
+ * Without it `~/.toudou/todos.json` reads as a relative path and lands in a
+ * directory literally named `~` at the root of the workspace — which is exactly
+ * what the documented example would have produced.
+ */
+export function expandHome(p: string, home: string): string {
+  if (p === '~') return home;
+  if (!p.startsWith('~/') && !p.startsWith('~\\')) return p;
+  const trimmed = home.replace(/[\\/]$/, '');
+  return trimmed + p.slice(1);
+}
+
 export function isAbsolutePath(p: string): boolean {
   return p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p);
 }

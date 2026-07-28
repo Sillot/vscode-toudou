@@ -6,6 +6,7 @@ import {
   DEFAULT_INTERVAL_SECONDS,
   describeFsError,
   errnoOf,
+  expandHome,
   isAbsolutePath,
   isInside,
   isMissing,
@@ -145,6 +146,39 @@ describe('filesystem errors', () => {
     assert.equal(describeFsError(withCode), withCode.message);
     const vscodeStyle = Object.assign(new Error('Permission denied'), { code: 'NoPermissions' });
     assert.equal(describeFsError(vscodeStyle), 'NoPermissions: Permission denied');
+  });
+});
+
+describe('expandHome', () => {
+  it('expands a leading tilde', () => {
+    assert.equal(expandHome('~/.toudou/todos.json', '/home/q'), '/home/q/.toudou/todos.json');
+    assert.equal(expandHome('~', '/home/q'), '/home/q');
+  });
+
+  it('expands the Windows separator too', () => {
+    assert.equal(
+      expandHome('~\\.toudou\\todos.json', 'C:\\Users\\q'),
+      'C:\\Users\\q\\.toudou\\todos.json',
+    );
+  });
+
+  it('does not double the separator when home ends with one', () => {
+    assert.equal(expandHome('~/todos.json', '/home/q/'), '/home/q/todos.json');
+  });
+
+  it('leaves anything else alone', () => {
+    assert.equal(expandHome('.vscode/toudou.json', '/home/q'), '.vscode/toudou.json');
+    assert.equal(expandHome('/etc/todos.json', '/home/q'), '/etc/todos.json');
+    // A tilde that is part of a name, not a home reference.
+    assert.equal(expandHome('~backup/todos.json', '/home/q'), '~backup/todos.json');
+    assert.equal(expandHome('notes/~/todos.json', '/home/q'), 'notes/~/todos.json');
+  });
+
+  it('produces a path the absolute check then recognizes', () => {
+    // The bug this guards: an unexpanded ~ reads as relative and lands in a
+    // directory literally named "~" inside the workspace.
+    assert.equal(isAbsolutePath('~/.toudou/todos.json'), false);
+    assert.equal(isAbsolutePath(expandHome('~/.toudou/todos.json', '/home/q')), true);
   });
 });
 

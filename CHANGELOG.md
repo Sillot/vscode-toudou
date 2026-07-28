@@ -17,6 +17,7 @@
 - Toggling "in progress" reads the current state from the file instead of the clicked tree item.
 - Importing a large file no longer freezes the window.
 - An error raised mid-batch no longer disables undo recording for the rest of the session.
+- A storage path starting with `~` is expanded to the home directory. It used to be read as a relative path and land in a directory literally named `~` inside the workspace — including for the `~/.toudou/{workspace}.json` example this README recommends.
 
 ### Security
 
@@ -31,6 +32,7 @@
 - New setting `toudou.watchExternalChanges` (default: `true`) to turn that off.
 - New setting `toudou.watchIntervalSeconds` (`2` | `3` | `5` | `10`, default: `3`).
 - New command "Reload Storage File" (`toudou.reloadStorage`) to force an immediate re-read.
+- Toudou now asks where a workspace should keep its todos the first time its view is opened in a project that has none: create one in the workspace, choose a location and file name, reuse an existing file, or keep the invisible default. The answer is stored per workspace and outside the project, so cloning a repository can never decide where your todos are written. Only asked when there is nothing to lose — an existing list or a configured path means the choice is already made.
 
 ### Changed
 

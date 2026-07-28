@@ -46,7 +46,10 @@ export function activate(context: vscode.ExtensionContext): void {
       })
       .finally(() => refreshAll());
 
-  void initStorage().then(() => initStorageWatcher(context, refreshAll));
+  void initStorage().then(() => {
+    initStorageWatcher(context, refreshAll);
+    void promptForStorageLocation(context, refreshAll);
+  });
 
   // Re-init storage when settings change
   context.subscriptions.push(
@@ -1082,6 +1085,102 @@ async function setWorkspacePathFlow(refreshAll: () => void): Promise<void> {
   await storage.setWorkspaceStoragePath(newPath || undefined);
   restartStorageWatcher();
   refreshAll();
+}
+
+// --- First-run storage location ---
+
+const STORAGE_PROMPT_KEY = 'storageLocationAsked';
+const DEFAULT_WORKSPACE_STORAGE = '.vscode/toudou.json';
+
+async function applyChosenStoragePath(path: string, refreshAll: () => void): Promise<void> {
+  // The user picked this location in a dialog: warning them about it right
+  // afterwards would be noise.
+  storage.acknowledgeStoragePath(path);
+  await storage.setWorkspaceStoragePath(path);
+  restartStorageWatcher();
+  refreshAll();
+}
+
+/**
+ * Offers a storage location the first time the view is opened in a workspace.
+ *
+ * Without it the file is created in VS Code's private `workspaceStorage`, which
+ * works but is invisible — and invisible is the wrong default for a file meant
+ * to be shared with Obsidian or committed alongside the project. Asked once, and
+ * only when there is nothing to lose: an existing list or an already configured
+ * path means the choice has been made.
+ */
+async function promptForStorageLocation(
+  context: vscode.ExtensionContext,
+  refreshAll: () => void,
+): Promise<void> {
+  if (context.workspaceState.get<boolean>(STORAGE_PROMPT_KEY)) return;
+  if (storage.getWorkspaceStoragePath()) return;
+  if (vscode.workspace.getConfiguration('toudou').get<string>('defaultStoragePath')) return;
+
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) return;
+
+  const isEmpty =
+    storage.getTodos().length === 0 &&
+    storage.getCategories().length === 0 &&
+    storage.getHistory().length === 0;
+  if (!isEmpty) return;
+
+  const createHere = vscode.l10n.t('Create in workspace');
+  const chooseLocation = vscode.l10n.t('Choose location…');
+  const openExisting = vscode.l10n.t('Use an existing file…');
+  const never = vscode.l10n.t("Don't ask again");
+
+  const choice = await vscode.window.showInformationMessage(
+    vscode.l10n.t('Toudou: where should this workspace keep its todos?'),
+    createHere,
+    chooseLocation,
+    openExisting,
+    never,
+  );
+  // Dismissed, or auto-hidden after a few seconds — not an answer. Asking again
+  // next time is the friendlier reading.
+  if (choice === undefined) return;
+
+  const remember = () => context.workspaceState.update(STORAGE_PROMPT_KEY, true);
+
+  if (choice === createHere) {
+    await applyChosenStoragePath(DEFAULT_WORKSPACE_STORAGE, refreshAll);
+    await remember();
+    return;
+  }
+
+  if (choice === chooseLocation) {
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.joinPath(folders[0].uri, 'toudou.json'),
+      filters: { JSON: ['json'] },
+      saveLabel: vscode.l10n.t('Use this file'),
+      title: vscode.l10n.t('Choose where Toudou stores this workspace'),
+    });
+    if (!target) return; // cancelled: leave the question open
+    await applyChosenStoragePath(target.fsPath, refreshAll);
+    await remember();
+    return;
+  }
+
+  if (choice === openExisting) {
+    const picked = await vscode.window.showOpenDialog({
+      defaultUri: folders[0].uri,
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      filters: { JSON: ['json'] },
+      openLabel: vscode.l10n.t('Use this file'),
+      title: vscode.l10n.t('Select an existing Toudou storage file'),
+    });
+    if (!picked || picked.length === 0) return;
+    await applyChosenStoragePath(picked[0].fsPath, refreshAll);
+    await remember();
+    return;
+  }
+
+  await remember();
 }
 
 // --- Double-click detection ---

@@ -69,5 +69,13 @@
   "Toudou: could not create the storage folder. {0}": "Toudou : impossible de créer le dossier de stockage. {0}",
   "Toudou: could not initialize storage. {0}": "Toudou : impossible d'initialiser le stockage. {0}",
   "Toudou: storagePath points to an absolute path \"{0}\". Make sure you trust this location.": "Toudou : storagePath pointe vers un chemin absolu « {0} ». Assurez-vous de faire confiance à cet emplacement.",
-  "Toudou: storagePath \"{0}\" resolves outside the workspace. Ignoring.": "Toudou : storagePath « {0} » pointe en dehors de l'espace de travail. Ignoré."
+  "Toudou: storagePath \"{0}\" resolves outside the workspace. Ignoring.": "Toudou : storagePath « {0} » pointe en dehors de l'espace de travail. Ignoré.",
+  "Toudou: where should this workspace keep its todos?": "Toudou : où ranger les toudous de cet espace de travail ?",
+  "Create in workspace": "Créer dans le projet",
+  "Choose location…": "Choisir l'emplacement…",
+  "Use an existing file…": "Utiliser un fichier existant…",
+  "Don't ask again": "Ne plus demander",
+  "Use this file": "Utiliser ce fichier",
+  "Choose where Toudou stores this workspace": "Choisir où Toudou range cet espace de travail",
+  "Select an existing Toudou storage file": "Sélectionner un fichier de stockage Toudou existant"
 }

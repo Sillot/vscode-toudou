@@ -127,9 +127,23 @@ By default, Toudou stores its data in VS Code's `workspaceStorage` directory, co
 
 - **Relative path** — resolved from the workspace root (e.g. `.vscode/toudou.json`). Must stay inside the workspace.
 - **Absolute path** — any location on disk (a warning is shown once per path).
+- **`~`** — expanded to your home directory.
 - **`{workspace}` placeholder** — replaced with a sanitized version of the workspace folder name (e.g. `~/.toudou/{workspace}.json`).
 
 You can also set a **per-workspace** path via the command **Toudou: Set Workspace Storage Path**, which takes precedence over the global setting.
+
+### First use in a workspace
+
+The first time you open the Toudou view in a project that has no todos yet, Toudou asks where they should live:
+
+| Choice | Result |
+| ------ | ------ |
+| **Create in workspace** | `.vscode/toudou.json`, next to the project and committable if you want it to be |
+| **Choose location…** | a save dialog: pick the folder and the file name yourself |
+| **Use an existing file…** | point at a file you already have, typically the one shared with Obsidian |
+| **Don't ask again** | keeps the invisible default in `workspaceStorage` |
+
+The answer is stored per workspace, outside the project. Dismissing the notification is not an answer — the question comes back next time.
 
 ## Sharing the storage file
 
