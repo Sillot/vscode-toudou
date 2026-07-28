@@ -4,6 +4,7 @@ import { CompletedTodo, createTodo, duplicateTodo, Todo, TodoPriority } from './
 import { HistoryProvider } from './providers/historyProvider';
 import { TodoProvider } from './providers/todoProvider';
 import * as storage from './services/storageService';
+import { initStorageWatcher, restartStorageWatcher } from './services/storageWatcher';
 import { registerTodoTools } from './tools/todoTools';
 
 const MAX_TITLE_LENGTH = 500;
@@ -34,6 +35,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Init storage then register everything
   storage.initStorage(context, refreshAll).then(() => {
     refreshAll();
+    initStorageWatcher(context, refreshAll);
   });
 
   // Re-init storage when settings change
@@ -42,7 +44,13 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration('toudou.defaultStoragePath')) {
         storage.initStorage(context, refreshAll).then(() => {
           refreshAll();
+          restartStorageWatcher();
         });
+      } else if (
+        e.affectsConfiguration('toudou.watchExternalChanges') ||
+        e.affectsConfiguration('toudou.watchIntervalSeconds')
+      ) {
+        restartStorageWatcher();
       }
     }),
   );
@@ -324,6 +332,15 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showTextDocument(uri);
       }
     }),
+    vscode.commands.registerCommand('toudou.reloadStorage', async () => {
+      const changed = await storage.reloadStorage();
+      refreshAll();
+      vscode.window.showInformationMessage(
+        changed
+          ? vscode.l10n.t('Storage file reloaded.')
+          : vscode.l10n.t('Storage file is already up to date.'),
+      );
+    }),
     vscode.commands.registerCommand('toudou.setWorkspacePath', () =>
       setWorkspacePathFlow(refreshAll),
     ),
@@ -554,8 +571,7 @@ async function pickOrCreateCategory(): Promise<string | undefined | null> {
     const existing = storage.getCategoryByName(name);
     if (existing) return existing.id;
 
-    const maxOrder = Math.max(...storage.getCategories().map((c) => c.order), -1) + 1;
-    const cat = createCategory(name, maxOrder);
+    const cat = createCategory(name, storage.getNextCategoryOrder());
     await storage.addCategory(cat);
     return cat.id;
   }
@@ -618,8 +634,7 @@ async function addCategoryFlow(): Promise<void> {
     return;
   }
 
-  const maxOrder = Math.max(...storage.getCategories().map((c) => c.order), -1) + 1;
-  await storage.addCategory(createCategory(name, maxOrder));
+  await storage.addCategory(createCategory(name, storage.getNextCategoryOrder()));
 }
 
 async function renameCategoryPalette(): Promise<void> {
@@ -1034,6 +1049,7 @@ async function setWorkspacePathFlow(refreshAll: () => void): Promise<void> {
   if (newPath === undefined) return; // cancelled
 
   await storage.setWorkspaceStoragePath(newPath || undefined);
+  restartStorageWatcher();
   refreshAll();
 }
 

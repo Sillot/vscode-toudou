@@ -2,7 +2,7 @@
   "name": "toudou",
   "displayName": "Toudou",
   "description": "%description%",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "Sillot",
   "icon": "resources/icon.png",
   "repository": {
@@ -50,6 +50,24 @@
           ],
           "default": "quick",
           "markdownDescription": "%config.defaultAddMode.description%",
+          "scope": "window"
+        },
+        "toudou.watchExternalChanges": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.watchExternalChanges.description%",
+          "scope": "window"
+        },
+        "toudou.watchIntervalSeconds": {
+          "type": "number",
+          "enum": [
+            2,
+            3,
+            5,
+            10
+          ],
+          "default": 3,
+          "markdownDescription": "%config.watchIntervalSeconds.description%",
           "scope": "window"
         }
       }
@@ -230,6 +248,12 @@
         "command": "toudou.setWorkspacePath",
         "title": "%command.setWorkspacePath%",
         "category": "Toudou"
+      },
+      {
+        "command": "toudou.reloadStorage",
+        "title": "%command.reloadStorage%",
+        "category": "Toudou",
+        "icon": "$(refresh)"
       },
       {
         "command": "toudou.clickTodo",

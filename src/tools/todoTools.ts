@@ -147,8 +147,7 @@ class ManageToudouTool implements vscode.LanguageModelTool<ManageToudouParams> {
       if (existing) {
         categoryId = existing.id;
       } else {
-        const maxOrder = Math.max(...storage.getCategories().map((c) => c.order), -1) + 1;
-        const newCat = createCategory(categoryInput, maxOrder);
+        const newCat = createCategory(categoryInput, storage.getNextCategoryOrder());
         await storage.addCategory(newCat);
         categoryId = newCat.id;
       }
@@ -198,8 +197,7 @@ class ManageToudouTool implements vscode.LanguageModelTool<ManageToudouParams> {
       return textResult(`Category "${name}" already exists.`);
     }
 
-    const maxOrder = Math.max(...storage.getCategories().map((c) => c.order), -1) + 1;
-    const cat = createCategory(name!, maxOrder);
+    const cat = createCategory(name!, storage.getNextCategoryOrder());
     await storage.addCategory(cat);
 
     return textResult(

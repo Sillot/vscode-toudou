@@ -76,24 +76,175 @@ function parseStorageData(raw: string): StorageData {
   };
 }
 
-let storageUri: vscode.Uri | undefined;
+/** Identifies the revision of the file we last read or wrote. */
+interface StorageSignature {
+  mtime: number;
+  size: number;
+}
+
 let resolvedFileUri: vscode.Uri | undefined;
 let data: StorageData = defaultData();
 let onDidChange: (() => void) | undefined;
+/** `undefined` when the file does not exist on disk. */
+let knownSignature: StorageSignature | undefined;
+let reportedError: string | undefined;
 
 const MAX_UNDO_STACK = 50;
 const undoStack: string[] = [];
 const redoStack: string[] = [];
 
-function fileUri(): vscode.Uri {
-  if (!resolvedFileUri) {
-    throw new Error('StorageService not initialized');
-  }
+export function getStorageFileUri(): vscode.Uri | undefined {
   return resolvedFileUri;
 }
 
-export function getStorageFileUri(): vscode.Uri | undefined {
-  return resolvedFileUri;
+// --- Serialized disk access ---
+
+let pendingOperation: Promise<unknown> = Promise.resolve();
+
+/**
+ * Runs disk operations one at a time. Without it a watcher poll could reload
+ * `data` in the middle of a mutation's read-modify-write and drop the change.
+ */
+function queue<T>(task: () => Promise<T>): Promise<T> {
+  const run = pendingOperation.then(task, task);
+  pendingOperation = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+// --- Filesystem helpers ---
+
+/** Node puts the errno at the head of the message, and VS Code keeps that message. */
+const ERRNO_PATTERN = /(?:^|[\s:(])(E[A-Z]{2,}):/;
+
+function errnoOf(error: unknown): string | undefined {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = ERRNO_PATTERN.exec(message);
+  if (match) return match[1];
+  // Fall back to the VS Code error code (FileNotFound, NoPermissions…).
+  const code = (error as { code?: unknown } | undefined)?.code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+function isMissing(error: unknown): boolean {
+  const code = errnoOf(error);
+  return code === 'ENOENT' || code === 'FileNotFound';
+}
+
+/**
+ * Prefixes the message with the errno (EPERM, EACCES, EBUSY…): without it a disk
+ * problem is indistinguishable from a bug in the extension.
+ */
+function describeFsError(error: unknown): string {
+  const code = errnoOf(error);
+  const message = error instanceof Error ? error.message : String(error);
+  if (!code || message.includes(code)) return message;
+  return `${code}: ${message}`;
+}
+
+/** A locked or malformed file is hit again on every poll: only surface it once. */
+function reportError(message: string): void {
+  if (reportedError === message) return;
+  reportedError = message;
+  vscode.window.showErrorMessage(message);
+}
+
+function reportReadError(error: unknown): void {
+  reportError(
+    vscode.l10n.t('Toudou: could not read the storage file. {0}', describeFsError(error)),
+  );
+}
+
+function clearError(): void {
+  reportedError = undefined;
+}
+
+interface ReadResult {
+  /** `undefined` when the file does not exist yet. */
+  content: string | undefined;
+  signature: StorageSignature | undefined;
+}
+
+async function readStorageFile(uri: vscode.Uri): Promise<ReadResult> {
+  try {
+    const [raw, stat] = await Promise.all([
+      vscode.workspace.fs.readFile(uri),
+      vscode.workspace.fs.stat(uri),
+    ]);
+    return {
+      content: Buffer.from(raw).toString('utf-8'),
+      signature: { mtime: stat.mtime, size: stat.size },
+    };
+  } catch (error) {
+    if (isMissing(error)) return { content: undefined, signature: undefined };
+    throw error;
+  }
+}
+
+async function readSignature(uri: vscode.Uri): Promise<StorageSignature | undefined> {
+  try {
+    const stat = await vscode.workspace.fs.stat(uri);
+    return { mtime: stat.mtime, size: stat.size };
+  } catch (error) {
+    if (isMissing(error)) return undefined;
+    throw error;
+  }
+}
+
+function sameSignature(a: StorageSignature | undefined, b: StorageSignature | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  // Size is compared too: filesystems with a coarse mtime granularity can time
+  // two consecutive writes to the same tick.
+  return a.mtime === b.mtime && a.size === b.size;
+}
+
+/**
+ * Errnos meaning "the rename could not replace the target right now" rather than
+ * "you may not write here". Cloud-sync clients (Synology Drive, OneDrive,
+ * Dropbox) routinely hold a transient lock on the file they are uploading, and
+ * on Windows that surfaces as one of these.
+ */
+const RENAME_LOCK_CODES: ReadonlySet<string> = new Set([
+  'EPERM',
+  'EACCES',
+  'EBUSY',
+  'EEXIST',
+  'ENOTEMPTY',
+  'NoPermissions',
+  'FileExists',
+  'Unavailable',
+]);
+
+/**
+ * Writes through a temporary file and renames it into place, so a reader (the
+ * Obsidian plugin, a sync client) never observes a half-written file. The
+ * temporary name carries the pid so two windows sharing one file cannot collide.
+ *
+ * When the rename is blocked — typically a sync client holding the target open
+ * on Windows — falls back to writing the destination directly. That trades the
+ * atomicity guarantee for actually saving the user's data, which is the right
+ * call: losing the change is worse than a reader catching a partial file during
+ * the few milliseconds of a rewrite.
+ */
+async function writeStorageFile(
+  uri: vscode.Uri,
+  content: Uint8Array,
+): Promise<StorageSignature | undefined> {
+  const temporary = uri.with({ path: `${uri.path}.${process.pid}.tmp` });
+  try {
+    await vscode.workspace.fs.writeFile(temporary, content);
+    await vscode.workspace.fs.rename(temporary, uri, { overwrite: true });
+  } catch (error) {
+    await Promise.resolve(vscode.workspace.fs.delete(temporary, { useTrash: false })).then(
+      () => undefined,
+      () => undefined,
+    );
+    if (!RENAME_LOCK_CODES.has(errnoOf(error) ?? '')) throw error;
+    await vscode.workspace.fs.writeFile(uri, content);
+  }
+  return readSignature(uri);
 }
 
 function getWorkspaceName(): string {
@@ -161,30 +312,120 @@ export async function initStorage(
   context: vscode.ExtensionContext,
   changeCallback: () => void,
 ): Promise<void> {
-  resolvedFileUri = resolveFileUri(context);
-  storageUri = resolvedFileUri ? vscode.Uri.joinPath(resolvedFileUri, '..') : undefined;
-  extensionContext = context;
-  onDidChange = changeCallback;
-
-  if (!resolvedFileUri) {
+  await queue(async () => {
+    resolvedFileUri = resolveFileUri(context);
+    extensionContext = context;
+    onDidChange = changeCallback;
+    knownSignature = undefined;
     data = defaultData();
-    return;
-  }
+    clearUndoHistory();
+    clearError();
 
-  // Ensure the storage directory exists
-  await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(resolvedFileUri, '..'));
+    if (!resolvedFileUri) return;
 
+    // Ensure the storage directory exists
+    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(resolvedFileUri, '..'));
+
+    let result: ReadResult;
+    try {
+      result = await readStorageFile(resolvedFileUri);
+    } catch (error) {
+      // Unreadable, not absent. Saving now would replace real data with an empty
+      // list, so leave the file alone and let the user fix it.
+      reportReadError(error);
+      return;
+    }
+
+    if (result.content === undefined) {
+      // No file yet — bring over anything left by the pre-1.0 workspaceState format.
+      await migrateLegacy(context);
+    } else {
+      try {
+        data = parseStorageData(result.content);
+      } catch (error) {
+        reportError(
+          vscode.l10n.t('Toudou: the storage file is not valid JSON. {0}', describeFsError(error)),
+        );
+        return;
+      }
+      knownSignature = result.signature;
+    }
+
+    await deduplicateCategories();
+    await backfillWorkspaceName();
+  });
+}
+
+/**
+ * Re-reads the file unconditionally. Returns true when the in-memory state
+ * actually changed.
+ *
+ * A read or parse failure keeps the current state on purpose: blanking it would
+ * let the next mutation overwrite the file with an empty list.
+ */
+async function reload(): Promise<boolean> {
+  if (!resolvedFileUri) return false;
+
+  let result: ReadResult;
   try {
-    const content = await vscode.workspace.fs.readFile(fileUri());
-    data = parseStorageData(Buffer.from(content).toString('utf-8'));
-  } catch {
-    // File doesn't exist yet — try migrating from legacy format
-    data = defaultData();
-    await migrateLegacy(context);
+    result = await readStorageFile(resolvedFileUri);
+  } catch (error) {
+    reportReadError(error);
+    return false;
   }
 
-  await deduplicateCategories();
-  await backfillWorkspaceName();
+  let next: StorageData;
+  try {
+    next = result.content === undefined ? defaultData() : parseStorageData(result.content);
+  } catch (error) {
+    reportError(
+      vscode.l10n.t('Toudou: the storage file is not valid JSON. {0}', describeFsError(error)),
+    );
+    return false;
+  }
+
+  const before = JSON.stringify(data);
+  data = next;
+  knownSignature = result.signature;
+  clearError();
+  return JSON.stringify(data) !== before;
+}
+
+/**
+ * Reloads when the file moved underneath us. Returns true only when the contents
+ * actually differ: an mtime bump on its own — our own write, a sync client
+ * rewriting an identical file — is not an external edit and must stay silent.
+ */
+async function refreshIfChangedOnDisk(): Promise<boolean> {
+  if (!resolvedFileUri) return false;
+
+  let signature: StorageSignature | undefined;
+  try {
+    signature = await readSignature(resolvedFileUri);
+  } catch (error) {
+    reportReadError(error);
+    return false;
+  }
+  if (sameSignature(signature, knownSignature)) return false;
+
+  const changed = await reload();
+  // The snapshots describe a state the file no longer has.
+  if (changed) clearUndoHistory();
+  return changed;
+}
+
+/** Polled by the storage watcher. Returns true when the views must be refreshed. */
+export function checkForExternalChanges(): Promise<boolean> {
+  return queue(() => refreshIfChangedOnDisk());
+}
+
+/** Forced re-read, behind the `toudou.reloadStorage` command. */
+export function reloadStorage(): Promise<boolean> {
+  return queue(async () => {
+    const changed = await reload();
+    if (changed) clearUndoHistory();
+    return changed;
+  });
 }
 
 async function backfillWorkspaceName(): Promise<void> {
@@ -270,18 +511,72 @@ function getRawWorkspaceName(): string | undefined {
 }
 
 async function save(): Promise<void> {
-  if (!storageUri) return;
-  data.workspace = getRawWorkspaceName();
+  if (!resolvedFileUri) return;
+  const name = getRawWorkspaceName();
+  if (name) data.workspace = name;
+
   const content = Buffer.from(JSON.stringify(data, null, 2), 'utf-8');
-  await vscode.workspace.fs.writeFile(fileUri(), content);
-  onDidChange?.();
+  try {
+    knownSignature = await writeStorageFile(resolvedFileUri, content);
+    clearError();
+    onDidChange?.();
+  } catch (error) {
+    // The change never reached the disk. Showing it anyway would leave the views
+    // lying until the next restart — the file's signature is unchanged, so the
+    // poll loop has nothing to correct with. Re-read instead, so what is on
+    // screen is always what is on disk.
+    clearUndoHistory();
+    await reload();
+    onDidChange?.();
+    reportError(
+      vscode.l10n.t('Toudou: could not save the storage file. {0}', describeFsError(error)),
+    );
+  }
 }
 
-let batchDepth = 0;
+/**
+ * The single entry point for every write.
+ *
+ * Re-reads the file first so a change made elsewhere — the Obsidian plugin,
+ * another window, another machine through a synced folder — is never clobbered:
+ * the mutation is applied on top of the freshest state instead of a stale
+ * in-memory copy. `apply` must therefore look up the entities it touches itself;
+ * a reference captured before the call belongs to the previous state object.
+ *
+ * Returning `false` from `apply` aborts the write (nothing found to change).
+ */
+async function mutate(apply: () => boolean | void): Promise<void> {
+  await queue(async () => {
+    await refreshIfChangedOnDisk();
+    const snapshot = JSON.stringify(data);
+    if (apply() === false) return;
+    commitUndo(snapshot);
+    await save();
+  });
+}
 
-function pushUndo(): void {
-  if (batchDepth > 0) return;
-  undoStack.push(JSON.stringify(data));
+// --- Undo / redo ---
+
+let batchDepth = 0;
+let pendingBatchSnapshot: string | undefined;
+
+function clearUndoHistory(): void {
+  undoStack.length = 0;
+  redoStack.length = 0;
+  pendingBatchSnapshot = undefined;
+}
+
+function commitUndo(snapshot: string): void {
+  if (batchDepth > 0) {
+    // Keep only the state from before the whole batch.
+    pendingBatchSnapshot ??= snapshot;
+    return;
+  }
+  pushUndoSnapshot(snapshot);
+}
+
+function pushUndoSnapshot(snapshot: string): void {
+  undoStack.push(snapshot);
   if (undoStack.length > MAX_UNDO_STACK) {
     undoStack.shift();
   }
@@ -289,32 +584,42 @@ function pushUndo(): void {
 }
 
 export function beginUndoBatch(): void {
-  if (batchDepth === 0) {
-    pushUndo();
-  }
   batchDepth++;
 }
 
 export function endUndoBatch(): void {
-  if (batchDepth > 0) batchDepth--;
+  if (batchDepth === 0) return;
+  batchDepth--;
+  if (batchDepth === 0 && pendingBatchSnapshot !== undefined) {
+    pushUndoSnapshot(pendingBatchSnapshot);
+    pendingBatchSnapshot = undefined;
+  }
 }
 
-export async function undo(): Promise<boolean> {
-  const snapshot = undoStack.pop();
-  if (!snapshot) return false;
-  redoStack.push(JSON.stringify(data));
-  data = parseStorageData(snapshot);
-  await save();
-  return true;
+export function undo(): Promise<boolean> {
+  return queue(async () => {
+    // May clear the stacks: a snapshot taken before an external edit would
+    // silently revert that edit too.
+    await refreshIfChangedOnDisk();
+    const snapshot = undoStack.pop();
+    if (snapshot === undefined) return false;
+    redoStack.push(JSON.stringify(data));
+    data = parseStorageData(snapshot);
+    await save();
+    return true;
+  });
 }
 
-export async function redo(): Promise<boolean> {
-  const snapshot = redoStack.pop();
-  if (!snapshot) return false;
-  undoStack.push(JSON.stringify(data));
-  data = parseStorageData(snapshot);
-  await save();
-  return true;
+export function redo(): Promise<boolean> {
+  return queue(async () => {
+    await refreshIfChangedOnDisk();
+    const snapshot = redoStack.pop();
+    if (snapshot === undefined) return false;
+    undoStack.push(JSON.stringify(data));
+    data = parseStorageData(snapshot);
+    await save();
+    return true;
+  });
 }
 
 // --- Categories ---
@@ -331,52 +636,56 @@ export function getCategoryByName(name: string): Category | undefined {
   return data.categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
 }
 
+export function getNextCategoryOrder(): number {
+  return Math.max(...data.categories.map((c) => c.order), -1) + 1;
+}
+
 export async function addCategory(category: Category): Promise<void> {
-  pushUndo();
-  data.categories.push(category);
-  await save();
+  // The order is recomputed here: the one the caller measured predates the
+  // re-read and may already be taken by a category added elsewhere.
+  await mutate(() => {
+    data.categories.push({ ...category, order: getNextCategoryOrder() });
+  });
 }
 
 export async function renameCategory(id: string, newName: string): Promise<void> {
-  const cat = data.categories.find((c) => c.id === id);
-  if (!cat) return;
-  pushUndo();
-  cat.name = newName;
-  await save();
+  await mutate(() => {
+    const cat = data.categories.find((c) => c.id === id);
+    if (!cat) return false;
+    cat.name = newName;
+  });
 }
 
 export async function updateCategoryEmoji(id: string, emoji: string | undefined): Promise<void> {
-  const cat = data.categories.find((c) => c.id === id);
-  if (!cat) return;
-  pushUndo();
-  cat.emoji = emoji;
-  await save();
+  await mutate(() => {
+    const cat = data.categories.find((c) => c.id === id);
+    if (!cat) return false;
+    cat.emoji = emoji;
+  });
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  pushUndo();
-  // Move todos to uncategorized (top-level)
-  const uncategorized = getUncategorizedTodos();
-  let maxOrder = uncategorized.length > 0 ? Math.max(...uncategorized.map((t) => t.order)) + 1 : 0;
-
-  for (const todo of data.todos) {
-    if (todo.categoryId === id) {
-      todo.categoryId = undefined;
-      todo.order = maxOrder++;
+  await mutate(() => {
+    if (!data.categories.some((c) => c.id === id)) return false;
+    // Move todos to uncategorized (top-level), after the existing ones.
+    let order = getNextOrder(undefined);
+    for (const todo of data.todos) {
+      if (todo.categoryId === id) {
+        todo.categoryId = undefined;
+        todo.order = order++;
+      }
     }
-  }
-
-  data.categories = data.categories.filter((c) => c.id !== id);
-  await save();
+    data.categories = data.categories.filter((c) => c.id !== id);
+  });
 }
 
 export async function reorderCategories(orderedIds: string[]): Promise<void> {
-  pushUndo();
-  for (let i = 0; i < orderedIds.length; i++) {
-    const cat = data.categories.find((c) => c.id === orderedIds[i]);
-    if (cat) cat.order = i;
-  }
-  await save();
+  await mutate(() => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const cat = data.categories.find((c) => c.id === orderedIds[i]);
+      if (cat) cat.order = i;
+    }
+  });
 }
 
 // --- Todos ---
@@ -407,9 +716,10 @@ export function findTodoByTitle(title: string): Todo | undefined {
 }
 
 export async function addTodo(todo: Todo): Promise<void> {
-  pushUndo();
-  data.todos.push(todo);
-  await save();
+  // Same as addCategory: the caller's order predates the re-read.
+  await mutate(() => {
+    data.todos.push({ ...todo, order: getNextOrder(todo.categoryId) });
+  });
 }
 
 const ALLOWED_TODO_UPDATE_KEYS: ReadonlySet<string> = new Set([
@@ -424,52 +734,53 @@ export async function updateTodo(
   id: string,
   updates: Partial<Pick<Todo, 'title' | 'description' | 'categoryId' | 'order' | 'priority'>>,
 ): Promise<void> {
-  const todo = data.todos.find((t) => t.id === id);
-  if (!todo) return;
-  pushUndo();
-  for (const key of Object.keys(updates)) {
-    if (ALLOWED_TODO_UPDATE_KEYS.has(key)) {
-      (todo as unknown as Record<string, unknown>)[key] = (
-        updates as unknown as Record<string, unknown>
-      )[key];
+  await mutate(() => {
+    const todo = data.todos.find((t) => t.id === id);
+    if (!todo) return false;
+    for (const key of Object.keys(updates)) {
+      if (ALLOWED_TODO_UPDATE_KEYS.has(key)) {
+        (todo as unknown as Record<string, unknown>)[key] = (
+          updates as unknown as Record<string, unknown>
+        )[key];
+      }
     }
-  }
-  await save();
+  });
 }
 
 export async function deleteTodo(id: string): Promise<void> {
-  pushUndo();
-  data.todos = data.todos.filter((t) => t.id !== id);
-  await save();
+  await mutate(() => {
+    if (!data.todos.some((t) => t.id === id)) return false;
+    data.todos = data.todos.filter((t) => t.id !== id);
+  });
 }
 
 export async function completeTodoById(id: string): Promise<void> {
-  const idx = data.todos.findIndex((t) => t.id === id);
-  if (idx === -1) return;
-  pushUndo();
-  const [todo] = data.todos.splice(idx, 1);
-  data.history.push({
-    id: todo.id,
-    title: todo.title,
-    description: todo.description,
-    categoryId: todo.categoryId,
-    priority: todo.priority,
-    createdAt: todo.createdAt,
-    completedAt: new Date().toISOString(),
+  await mutate(() => {
+    const idx = data.todos.findIndex((t) => t.id === id);
+    if (idx === -1) return false;
+    const [todo] = data.todos.splice(idx, 1);
+    data.history.push({
+      id: todo.id,
+      title: todo.title,
+      description: todo.description,
+      categoryId: todo.categoryId,
+      priority: todo.priority,
+      createdAt: todo.createdAt,
+      completedAt: new Date().toISOString(),
+    });
   });
-  await save();
 }
 
 export async function reorderTodos(
   categoryId: string | undefined,
   orderedIds: string[],
 ): Promise<void> {
-  pushUndo();
-  for (let i = 0; i < orderedIds.length; i++) {
-    const todo = data.todos.find((t) => t.id === orderedIds[i] && t.categoryId === categoryId);
-    if (todo) todo.order = i;
-  }
-  await save();
+  await mutate(() => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const todo = data.todos.find((t) => t.id === orderedIds[i] && t.categoryId === categoryId);
+      if (todo) todo.order = i;
+    }
+  });
 }
 
 export async function moveTodoToCategory(
@@ -477,12 +788,12 @@ export async function moveTodoToCategory(
   targetCategoryId: string | undefined,
   order: number,
 ): Promise<void> {
-  const todo = data.todos.find((t) => t.id === todoId);
-  if (!todo) return;
-  pushUndo();
-  todo.categoryId = targetCategoryId;
-  todo.order = order;
-  await save();
+  await mutate(() => {
+    const todo = data.todos.find((t) => t.id === todoId);
+    if (!todo) return false;
+    todo.categoryId = targetCategoryId;
+    todo.order = order;
+  });
 }
 
 // --- History ---
@@ -494,35 +805,35 @@ export function getHistory(): CompletedTodo[] {
 }
 
 export async function restoreFromHistory(id: string): Promise<void> {
-  const idx = data.history.findIndex((t) => t.id === id);
-  if (idx === -1) return;
-  pushUndo();
-  const [completed] = data.history.splice(idx, 1);
+  await mutate(() => {
+    const idx = data.history.findIndex((t) => t.id === id);
+    if (idx === -1) return false;
+    const [completed] = data.history.splice(idx, 1);
 
-  // Restore to original category, or uncategorized if it no longer exists
-  const categoryExists =
-    completed.categoryId !== undefined &&
-    data.categories.some((c) => c.id === completed.categoryId);
-  const categoryId = categoryExists ? completed.categoryId : undefined;
-  const order = getNextOrder(categoryId);
+    // Restore to original category, or uncategorized if it no longer exists
+    const categoryExists =
+      completed.categoryId !== undefined &&
+      data.categories.some((c) => c.id === completed.categoryId);
+    const categoryId = categoryExists ? completed.categoryId : undefined;
 
-  data.todos.push({
-    id: completed.id,
-    title: completed.title,
-    description: completed.description,
-    categoryId,
-    priority: completed.priority,
-    inProgress: undefined,
-    order,
-    createdAt: completed.createdAt,
+    data.todos.push({
+      id: completed.id,
+      title: completed.title,
+      description: completed.description,
+      categoryId,
+      priority: completed.priority,
+      inProgress: undefined,
+      order: getNextOrder(categoryId),
+      createdAt: completed.createdAt,
+    });
   });
-  await save();
 }
 
 export async function purgeHistory(): Promise<void> {
-  pushUndo();
-  data.history = [];
-  await save();
+  await mutate(() => {
+    if (data.history.length === 0) return false;
+    data.history = [];
+  });
 }
 
 export function getNextOrder(categoryId: string | undefined): number {
@@ -537,9 +848,10 @@ export function getSortMode(): SortMode {
 }
 
 export async function setSortMode(mode: SortMode): Promise<void> {
-  pushUndo();
-  data.sortMode = mode;
-  await save();
+  await mutate(() => {
+    if (data.sortMode === mode) return false;
+    data.sortMode = mode;
+  });
 }
 
 // --- Priority ---
@@ -548,21 +860,21 @@ export async function setTodoPriority(
   id: string,
   priority: TodoPriority | undefined,
 ): Promise<void> {
-  const todo = data.todos.find((t) => t.id === id);
-  if (!todo) return;
-  pushUndo();
-  todo.priority = priority;
-  await save();
+  await mutate(() => {
+    const todo = data.todos.find((t) => t.id === id);
+    if (!todo) return false;
+    todo.priority = priority;
+  });
 }
 
 // --- In Progress ---
 
 export async function setTodoInProgress(id: string, inProgress: boolean): Promise<void> {
-  const todo = data.todos.find((t) => t.id === id);
-  if (!todo) return;
-  pushUndo();
-  todo.inProgress = inProgress || undefined;
-  await save();
+  await mutate(() => {
+    const todo = data.todos.find((t) => t.id === id);
+    if (!todo) return false;
+    todo.inProgress = inProgress || undefined;
+  });
 }
 
 // --- Workspace Storage Path ---
@@ -694,72 +1006,64 @@ export function parseExportData(raw: unknown): ExportData | undefined {
 }
 
 export async function importData(exportData: ExportData): Promise<number> {
-  pushUndo();
-
-  const categoryMap = new Map<string, string>();
-  for (const cat of data.categories) {
-    categoryMap.set(cat.name.toLowerCase(), cat.id);
-  }
-
-  // Index export categories for emoji metadata
-  const exportCategoryMeta = new Map<string, ExportCategory>();
-  for (const ec of exportData.categories) {
-    exportCategoryMeta.set(ec.name.toLowerCase(), ec);
-  }
-
-  // Create declared categories that don't exist yet
-  for (const exportCat of exportData.categories) {
-    const normalized = exportCat.name.toLowerCase();
-    if (!categoryMap.has(normalized)) {
-      const maxOrder =
-        data.categories.length > 0 ? Math.max(...data.categories.map((c) => c.order)) + 1 : 0;
-      const newCat: Category = {
-        id: crypto.randomUUID(),
-        name: exportCat.name,
-        order: maxOrder,
-        emoji: exportCat.emoji,
-      };
-      data.categories.push(newCat);
-      categoryMap.set(normalized, newCat.id);
-    }
-  }
-
-  // Import todos, auto-creating categories referenced by name
   let count = 0;
-  for (const exportTodo of exportData.todos) {
-    let categoryId: string | undefined;
-    if (exportTodo.category) {
-      const normalized = exportTodo.category.toLowerCase();
-      if (!categoryMap.has(normalized)) {
-        const meta = exportCategoryMeta.get(normalized);
-        const maxOrder =
-          data.categories.length > 0 ? Math.max(...data.categories.map((c) => c.order)) + 1 : 0;
-        const newCat: Category = {
-          id: crypto.randomUUID(),
-          name: exportTodo.category,
-          order: maxOrder,
-          emoji: meta?.emoji,
-        };
-        data.categories.push(newCat);
-        categoryMap.set(normalized, newCat.id);
-      }
-      categoryId = categoryMap.get(normalized);
+
+  await mutate(() => {
+    // Built inside the callback: the category list may have grown on disk since
+    // the file dialog was opened.
+    const categoryMap = new Map<string, string>();
+    for (const cat of data.categories) {
+      categoryMap.set(cat.name.toLowerCase(), cat.id);
     }
 
-    const order = getNextOrder(categoryId);
-    data.todos.push({
-      id: crypto.randomUUID(),
-      title: exportTodo.title,
-      description: exportTodo.description,
-      categoryId,
-      priority: exportTodo.priority,
-      inProgress: undefined,
-      order,
-      createdAt: new Date().toISOString(),
-    });
-    count++;
-  }
+    // Index export categories for emoji metadata
+    const exportCategoryMeta = new Map<string, ExportCategory>();
+    for (const ec of exportData.categories) {
+      exportCategoryMeta.set(ec.name.toLowerCase(), ec);
+    }
 
-  await save();
+    const ensureCategory = (name: string, emoji: string | undefined): string => {
+      const normalized = name.toLowerCase();
+      const existing = categoryMap.get(normalized);
+      if (existing) return existing;
+      const created: Category = {
+        id: crypto.randomUUID(),
+        name,
+        order: getNextCategoryOrder(),
+        emoji,
+      };
+      data.categories.push(created);
+      categoryMap.set(normalized, created.id);
+      return created.id;
+    };
+
+    // Create declared categories that don't exist yet
+    for (const exportCat of exportData.categories) {
+      ensureCategory(exportCat.name, exportCat.emoji);
+    }
+
+    // Import todos, auto-creating categories referenced by name
+    for (const exportTodo of exportData.todos) {
+      const categoryId = exportTodo.category
+        ? ensureCategory(
+            exportTodo.category,
+            exportCategoryMeta.get(exportTodo.category.toLowerCase())?.emoji,
+          )
+        : undefined;
+
+      data.todos.push({
+        id: crypto.randomUUID(),
+        title: exportTodo.title,
+        description: exportTodo.description,
+        categoryId,
+        priority: exportTodo.priority,
+        inProgress: undefined,
+        order: getNextOrder(categoryId),
+        createdAt: new Date().toISOString(),
+      });
+      count++;
+    }
+  });
+
   return count;
 }

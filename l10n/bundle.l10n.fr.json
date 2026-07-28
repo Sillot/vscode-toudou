@@ -59,5 +59,10 @@
   "Import": "Importer",
   "Invalid JSON file.": "Fichier JSON invalide.",
   "No valid todos found in the file.": "Aucune tâche valide trouvée dans le fichier.",
-  "{0} todo(s) imported.": "{0} tâche(s) importée(s)."
+  "{0} todo(s) imported.": "{0} tâche(s) importée(s).",
+  "Toudou: could not read the storage file. {0}": "Toudou : impossible de lire le fichier de stockage. {0}",
+  "Toudou: the storage file is not valid JSON. {0}": "Toudou : le fichier de stockage n'est pas un JSON valide. {0}",
+  "Toudou: could not save the storage file. {0}": "Toudou : impossible d'enregistrer le fichier de stockage. {0}",
+  "Storage file reloaded.": "Fichier de stockage rechargé.",
+  "Storage file is already up to date.": "Le fichier de stockage est déjà à jour."
 }

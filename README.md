@@ -106,12 +106,16 @@ All commands are available under the **Toudou** category in the Command Palette 
 | Import Todos               | Import todos from a JSON file                              |
 | Open Storage File          | View the raw JSON data                                     |
 | Set Workspace Storage Path | Override the storage location for this workspace           |
+| Reload Storage File        | Re-read the storage file from disk immediately             |
 
 ## Settings
 
-| Setting                     | Description                                                                                  |
-| --------------------------- | -------------------------------------------------------------------------------------------- |
-| `toudou.defaultStoragePath` | Default path to the storage file. Use `{workspace}` as a placeholder for the workspace name. |
+| Setting                        | Description                                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `toudou.defaultStoragePath`    | Default path to the storage file. Use `{workspace}` as a placeholder for the workspace name. |
+| `toudou.defaultAddMode`        | Which flow the `+` button runs: `quick` (title only) or `complete`. Default: `quick`.        |
+| `toudou.watchExternalChanges`  | Reload the storage file when another app edits it. Default: `true`.                          |
+| `toudou.watchIntervalSeconds`  | How often the file is checked for external changes: 2, 3, 5 or 10. Default: `3`.             |
 
 By default, Toudou stores its data in VS Code's `workspaceStorage` directory, completely outside your project. You can override this with `toudou.defaultStoragePath`:
 
@@ -120,6 +124,12 @@ By default, Toudou stores its data in VS Code's `workspaceStorage` directory, co
 - **`{workspace}` placeholder** — replaced with a sanitized version of the workspace folder name (e.g. `~/.toudou/{workspace}.json`).
 
 You can also set a **per-workspace** path via the command **Toudou: Set Workspace Storage Path**, which takes precedence over the global setting.
+
+## Sharing the storage file
+
+The storage file can be shared with the [Obsidian Toudou plugin](https://github.com/Sillot/obsidian-toudou), another VS Code window, or another machine through a synced folder (Synology Drive, OneDrive…) — the on-disk format is identical.
+
+Every change is applied on top of a fresh read of the file, and saved through a temporary file renamed into place, so concurrent edits do not overwrite each other. External changes appear in the tree within a few seconds without reloading the window; **Toudou: Reload Storage File** forces an immediate re-read.
 
 ## Development
 
