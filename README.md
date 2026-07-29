@@ -176,6 +176,15 @@ Open in VS Code with Dev Containers to get the full dockerized dev environment.
 | `npm run check`     | Run typecheck + lint + format check + tests            |
 | `npm run package`   | Package as `.vsix` (runs check + minified build first) |
 
+### Tests
+
+`npm test` runs the suite on Node's built-in test runner — no framework, no extra dependency.
+
+Two levels:
+
+- `test/storageCore.test.ts` covers the pure helpers directly: round-tripping a file another client also writes, comparing revisions, normalizing manual order.
+- `test/storageService.test.ts` covers the service itself against `test/helpers/vscodeStub.ts`, an in-memory `vscode` module that esbuild substitutes for the real one (`--alias:vscode=…`). The service is exercised unmodified, so the tests cover the code that ships rather than a copy of its logic. The stub's `failure` hook makes any filesystem operation fail on demand, which is how the corrupt, missing and locked-file paths are reached.
+
 ### Debug
 
 Press `F5` to launch an Extension Development Host with the extension loaded.
