@@ -17,6 +17,7 @@
 - Toggling "in progress" reads the current state from the file instead of the clicked tree item.
 - Importing a large file no longer freezes the window.
 - An error raised mid-batch no longer disables undo recording for the rest of the session.
+- The French bundle is complete again. Six strings had never been translated, and the priority labels were hardcoded English injected into a translated sentence — a French user read "Priorité : ⬆ High".
 - A storage path starting with `~` is expanded to the home directory. It used to be read as a relative path and land in a directory literally named `~` inside the workspace — including for the `~/.toudou/{workspace}.json` example this README recommends.
 
 ### Security

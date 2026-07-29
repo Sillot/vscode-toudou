@@ -31,11 +31,26 @@ function isFilterIndicator(node: TreeNode): node is FilterIndicator {
   return 'kind' in node && (node as FilterIndicator).kind === 'filter';
 }
 
-const PRIORITY_ICONS: Record<TodoPriority, string> = {
-  high: '⬆ High',
-  medium: '— Medium',
-  low: '⬇ Low',
+const PRIORITY_GLYPHS: Record<TodoPriority, string> = {
+  high: '⬆',
+  medium: '—',
+  low: '⬇',
 };
+
+/**
+ * Resolved on each call rather than in a module-level table: `l10n.t` needs the
+ * bundle, which is not loaded yet when this module is first evaluated. The glyph
+ * stays out of the translated string, so a translator only handles the word.
+ */
+function priorityLabel(priority: TodoPriority): string {
+  const name =
+    priority === 'high'
+      ? vscode.l10n.t('High')
+      : priority === 'medium'
+        ? vscode.l10n.t('Medium')
+        : vscode.l10n.t('Low');
+  return `${PRIORITY_GLYPHS[priority]} ${name}`;
+}
 
 function priorityCompare(a: Todo, b: Todo): number {
   const pa = a.priority ? PRIORITY_ORDER[a.priority] : NO_PRIORITY_ORDER;
@@ -288,7 +303,7 @@ export class TodoProvider
     const cat = todo.categoryId ? getCategoryById(todo.categoryId) : undefined;
     const parts: string[] = [escapeMarkdown(todo.title)];
     if (todo.priority) {
-      parts.push(vscode.l10n.t('Priority: {0}', PRIORITY_ICONS[todo.priority]));
+      parts.push(vscode.l10n.t('Priority: {0}', priorityLabel(todo.priority)));
     }
     if (cat) {
       const catLabel = cat.emoji ? `${cat.emoji} ${cat.name}` : cat.name;
@@ -313,7 +328,7 @@ export class TodoProvider
     } else {
       // Show priority as description
       if (todo.priority) {
-        item.description = PRIORITY_ICONS[todo.priority];
+        item.description = priorityLabel(todo.priority);
       }
     }
 
