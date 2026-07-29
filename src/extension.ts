@@ -3,6 +3,7 @@ import { createCategory } from './models/category';
 import { CompletedTodo, createTodo, duplicateTodo, Todo, TodoPriority } from './models/todo';
 import { HistoryProvider } from './providers/historyProvider';
 import { TodoProvider } from './providers/todoProvider';
+import { sanitizeWorkspaceName } from './services/storageCore';
 import * as storage from './services/storageService';
 import { initStorageWatcher, restartStorageWatcher } from './services/storageWatcher';
 import { registerTodoTools } from './tools/todoTools';
@@ -1086,28 +1087,40 @@ async function applyChosenStoragePath(path: string, refreshAll: () => void): Pro
   refreshAll();
 }
 
-/** Save dialog: pick both the folder and the file name. */
-function pickNewStorageFile(base: vscode.Uri): Thenable<vscode.Uri | undefined> {
-  return vscode.window.showSaveDialog({
-    defaultUri: vscode.Uri.joinPath(base, 'toudou.json'),
-    filters: { JSON: ['json'] },
-    saveLabel: vscode.l10n.t('Use this file'),
-    title: vscode.l10n.t('Choose where Toudou stores this workspace'),
-  });
-}
-
-/** Open dialog: reuse a file that already exists, typically shared with Obsidian. */
-async function pickExistingStorageFile(base: vscode.Uri): Promise<vscode.Uri | undefined> {
+/**
+ * Picks the storage file, whether or not it exists yet.
+ *
+ * One dialog for both intents: selecting a file means "use that one", selecting
+ * a folder means "create it in there". A save dialog would cover both too, but
+ * the OS would then ask whether to replace the very file the user is trying to
+ * reuse — which is not what happens to it.
+ */
+async function pickStorageTarget(base: vscode.Uri): Promise<vscode.Uri | undefined> {
   const picked = await vscode.window.showOpenDialog({
     defaultUri: base,
     canSelectFiles: true,
-    canSelectFolders: false,
+    canSelectFolders: true,
     canSelectMany: false,
     filters: { JSON: ['json'] },
-    openLabel: vscode.l10n.t('Use this file'),
-    title: vscode.l10n.t('Select an existing Toudou storage file'),
+    openLabel: vscode.l10n.t('Use this'),
+    title: vscode.l10n.t('Pick a Toudou file, or a folder to create one in'),
   });
-  return picked?.[0];
+
+  const target = picked?.[0];
+  if (!target) return undefined;
+
+  let isFolder: boolean;
+  try {
+    isFolder = (await vscode.workspace.fs.stat(target)).type === vscode.FileType.Directory;
+  } catch {
+    // Vanished between the dialog and here: treat it as the file it looked like.
+    return target;
+  }
+  if (!isFolder) return target;
+
+  // Named after the workspace: one synced folder often holds several projects.
+  const name = vscode.workspace.workspaceFolders?.[0]?.name;
+  return vscode.Uri.joinPath(target, `toudou-${sanitizeWorkspaceName(name ?? 'default')}.json`);
 }
 
 /** The typed form, the only one that accepts `{workspace}` and `~`. */
@@ -1122,7 +1135,7 @@ async function promptForStoragePathText(current: string | undefined): Promise<st
   });
 }
 
-type StorageAction = 'workspace' | 'choose' | 'existing' | 'type' | 'reset';
+type StorageAction = 'workspace' | 'choose' | 'type' | 'reset';
 
 /**
  * The storage location, changeable at any time rather than only on first use.
@@ -1155,14 +1168,9 @@ async function setWorkspacePathFlow(
       action: 'workspace',
     },
     {
-      label: `$(save-as) ${vscode.l10n.t('Choose location…')}`,
-      description: vscode.l10n.t('pick a folder and a file name'),
+      label: `$(folder-opened) ${vscode.l10n.t('Choose a file or folder…')}`,
+      description: vscode.l10n.t('an existing file, or a folder to create one in'),
       action: 'choose',
-    },
-    {
-      label: `$(folder-opened) ${vscode.l10n.t('Use an existing file…')}`,
-      description: vscode.l10n.t('a file shared with Obsidian or another window'),
-      action: 'existing',
     },
     {
       label: `$(edit) ${vscode.l10n.t('Enter a path…')}`,
@@ -1200,15 +1208,7 @@ async function setWorkspacePathFlow(
       return;
 
     case 'choose': {
-      const target = await pickNewStorageFile(folders[0].uri);
-      if (!target) return;
-      await applyChosenStoragePath(target.fsPath, refreshAll);
-      await remember();
-      return;
-    }
-
-    case 'existing': {
-      const target = await pickExistingStorageFile(folders[0].uri);
+      const target = await pickStorageTarget(folders[0].uri);
       if (!target) return;
       await applyChosenStoragePath(target.fsPath, refreshAll);
       await remember();
@@ -1270,15 +1270,13 @@ async function promptForStorageLocation(
   }
 
   const createHere = vscode.l10n.t('Create in workspace');
-  const chooseLocation = vscode.l10n.t('Choose location…');
-  const openExisting = vscode.l10n.t('Use an existing file…');
+  const chooseLocation = vscode.l10n.t('Choose a file or folder…');
   const never = vscode.l10n.t("Don't ask again");
 
   const choice = await vscode.window.showInformationMessage(
     vscode.l10n.t('Toudou: where should this workspace keep its todos?'),
     createHere,
     chooseLocation,
-    openExisting,
     never,
   );
   // Dismissed, or auto-hidden after a few seconds — not an answer. Asking again
@@ -1294,16 +1292,8 @@ async function promptForStorageLocation(
   }
 
   if (choice === chooseLocation) {
-    const target = await pickNewStorageFile(folders[0].uri);
+    const target = await pickStorageTarget(folders[0].uri);
     if (!target) return; // cancelled: leave the question open
-    await applyChosenStoragePath(target.fsPath, refreshAll);
-    await remember();
-    return;
-  }
-
-  if (choice === openExisting) {
-    const target = await pickExistingStorageFile(folders[0].uri);
-    if (!target) return;
     await applyChosenStoragePath(target.fsPath, refreshAll);
     await remember();
     return;

@@ -12,6 +12,7 @@ import {
   isMissing,
   parseStorageData,
   sameSignature,
+  sanitizeWorkspaceName,
   serializeStorageData,
   trimUndoStack,
 } from '../src/services/storageCore';
@@ -179,6 +180,15 @@ describe('expandHome', () => {
     // directory literally named "~" inside the workspace.
     assert.equal(isAbsolutePath('~/.toudou/todos.json'), false);
     assert.equal(isAbsolutePath(expandHome('~/.toudou/todos.json', '/home/q')), true);
+  });
+});
+
+describe('sanitizeWorkspaceName', () => {
+  it('keeps a name usable as a file name', () => {
+    assert.equal(sanitizeWorkspaceName('My Project'), 'my-project');
+    assert.equal(sanitizeWorkspaceName('vscode-toudou'), 'vscode-toudou');
+    assert.equal(sanitizeWorkspaceName('Café/Projet:2026'), 'caf--projet-2026');
+    assert.equal(sanitizeWorkspaceName('..'), '--');
   });
 });
 

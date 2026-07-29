@@ -140,13 +140,14 @@ The first time you open the Toudou view in a project that has no todos yet, Toud
 | Choice | Result |
 | ------ | ------ |
 | **Create in workspace** | `.vscode/toudou.json`, next to the project and committable if you want it to be |
-| **Choose location…** | a save dialog: pick the folder and the file name yourself |
-| **Use an existing file…** | point at a file you already have, typically the one shared with Obsidian |
+| **Choose a file or folder…** | pick a file to use it as-is, or a folder to create `toudou-{workspace}.json` in it |
 | **Don't ask again** | keeps the invisible default in `workspaceStorage` |
 
 The answer is stored per workspace, outside the project. Dismissing the notification is not an answer — the question comes back next time.
 
 The same choices stay available at any time under **Toudou: Set Workspace Storage Path** (view's `…` menu), which shows where the workspace currently writes and adds two more: enter a path by hand — the only form that accepts `{workspace}` and `~` — or reset to the machine default.
+
+Picking an existing file never overwrites it: Toudou reads it and merges its own writes into it, keeping anything it does not recognize.
 
 **Toudou: Reset Storage Location** does that last one directly, with a confirmation naming the file it stops using. Nothing on disk is touched, only the pointer to it — the way out of a mistyped path, a synced folder that no longer exists, or a **Don't ask again** clicked too fast.
 

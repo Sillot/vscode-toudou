@@ -4,7 +4,7 @@
   "config.defaultAddMode.description": "Controls which command the `+` button in the Toudou view uses by default.",
   "config.defaultAddMode.quick.description": "Quick add: only asks for a title.",
   "config.defaultAddMode.complete.description": "Complete add: asks for title, category and description.",
-  "config.watchExternalChanges.description": "Reload the storage file when it is modified outside this window (Obsidian plugin, another VS Code window, another machine through a synced folder). Disable only if the file is never shared.",
+  "config.watchExternalChanges.description": "Reload the storage file when it is modified outside this window: another app, another VS Code window, another machine through a synced folder. Disable only if the file is never shared.",
   "config.watchIntervalSeconds.description": "How often the storage file is checked for external changes, in seconds. Lower reacts faster, higher is gentler on synced folders.",
   "viewsContainers.toudou.title": "Toudou",
   "views.todos.name": "Toudous",

@@ -207,6 +207,11 @@ export const RENAME_LOCK_CODES: ReadonlySet<string> = new Set([
 
 // --- Paths ---
 
+/** Keeps a workspace name usable as a file name on every platform. */
+export function sanitizeWorkspaceName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+}
+
 /**
  * Expands a leading `~` to the home directory.
  *

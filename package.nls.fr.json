@@ -4,7 +4,7 @@
   "config.defaultAddMode.description": "Contrôle quelle commande le bouton `+` de la vue Toudou utilise par défaut.",
   "config.defaultAddMode.quick.description": "Ajout rapide : demande uniquement le titre.",
   "config.defaultAddMode.complete.description": "Ajout complet : demande le titre, la catégorie et la description.",
-  "config.watchExternalChanges.description": "Recharger le fichier de stockage lorsqu'il est modifié en dehors de cette fenêtre (plugin Obsidian, autre fenêtre VS Code, autre machine via un dossier synchronisé). À désactiver uniquement si le fichier n'est jamais partagé.",
+  "config.watchExternalChanges.description": "Recharger le fichier de stockage lorsqu'il est modifié en dehors de cette fenêtre : une autre application, une autre fenêtre VS Code, une autre machine via un dossier synchronisé. À désactiver uniquement si le fichier n'est jamais partagé.",
   "config.watchIntervalSeconds.description": "Fréquence de vérification des changements externes du fichier de stockage, en secondes. Plus court réagit plus vite, plus long ménage les dossiers synchronisés.",
   "viewsContainers.toudou.title": "Toudou",
   "views.todos.name": "Toudous",

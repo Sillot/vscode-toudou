@@ -14,6 +14,7 @@ import {
   parseStorageData,
   RENAME_LOCK_CODES,
   sameSignature,
+  sanitizeWorkspaceName,
   serializeStorageData,
   SortMode,
   StorageData,
@@ -233,7 +234,7 @@ async function writeStorageFile(
 function getWorkspaceName(): string {
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) return 'default';
-  return folders[0].name.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  return sanitizeWorkspaceName(folders[0].name);
 }
 
 const ACKNOWLEDGED_PATHS_KEY = 'acknowledgedAbsolutePaths';
