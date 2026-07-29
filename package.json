@@ -95,6 +95,18 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "toudouView",
+        "contents": "%welcome.storage%",
+        "when": "toudou.storageUnset"
+      },
+      {
+        "view": "toudouView",
+        "contents": "%welcome.empty%",
+        "when": "!toudou.storageUnset"
+      }
+    ],
     "commands": [
       {
         "command": "toudou.addTodo",
@@ -262,6 +274,21 @@
         "title": "%command.resetStorageLocation%",
         "category": "Toudou",
         "icon": "$(discard)"
+      },
+      {
+        "command": "toudou.useWorkspaceStorage",
+        "title": "%command.useWorkspaceStorage%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.chooseStorageLocation",
+        "title": "%command.chooseStorageLocation%",
+        "category": "Toudou"
+      },
+      {
+        "command": "toudou.keepDefaultStorage",
+        "title": "%command.keepDefaultStorage%",
+        "category": "Toudou"
       },
       {
         "command": "toudou.clickTodo",
@@ -500,6 +527,18 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "toudou.useWorkspaceStorage",
+          "when": "false"
+        },
+        {
+          "command": "toudou.chooseStorageLocation",
+          "when": "false"
+        },
+        {
+          "command": "toudou.keepDefaultStorage",
+          "when": "false"
+        },
         {
           "command": "toudou.completeTodoInline",
           "when": "false"

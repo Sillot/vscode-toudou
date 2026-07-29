@@ -49,14 +49,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
   void initStorage().then(() => {
     initStorageWatcher(context, refreshAll);
-    void promptForStorageLocation(context, refreshAll);
+    updateStorageContext(context);
   });
 
   // Re-init storage when settings change
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('toudou.defaultStoragePath')) {
-        void initStorage().then(() => restartStorageWatcher());
+        void initStorage().then(() => {
+          restartStorageWatcher();
+          updateStorageContext(context);
+        });
       } else if (
         e.affectsConfiguration('toudou.watchExternalChanges') ||
         e.affectsConfiguration('toudou.watchIntervalSeconds')
@@ -371,6 +374,23 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('toudou.resetStorageLocation', () =>
       resetStorageLocationFlow(context, refreshAll),
+    ),
+    // The three buttons of the welcome view, hidden from the palette: they only
+    // make sense while the question is on screen.
+    vscode.commands.registerCommand('toudou.useWorkspaceStorage', async () => {
+      await applyChosenStoragePath(DEFAULT_WORKSPACE_STORAGE, refreshAll);
+      await markStorageChoiceMade(context);
+    }),
+    vscode.commands.registerCommand('toudou.chooseStorageLocation', async () => {
+      const base = vscode.workspace.workspaceFolders?.[0]?.uri;
+      if (!base) return;
+      const target = await pickStorageTarget(base);
+      if (!target) return;
+      await applyChosenStoragePath(target.fsPath, refreshAll);
+      await markStorageChoiceMade(context);
+    }),
+    vscode.commands.registerCommand('toudou.keepDefaultStorage', () =>
+      markStorageChoiceMade(context),
     ),
     vscode.commands.registerCommand('toudou.deleteSelected', async () => {
       const selection = todoTreeView.selection;
@@ -1197,9 +1217,8 @@ async function setWorkspacePathFlow(
   });
   if (!pick) return;
 
-  // Whatever they answer here is an answer: the first-run question has served
-  // its purpose and must not come back.
-  const remember = () => context.workspaceState.update(STORAGE_PROMPT_KEY, true);
+  // Whatever they answer here is an answer: the welcome view must stop asking.
+  const remember = () => markStorageChoiceMade(context);
 
   switch (pick.action) {
     case 'workspace':
@@ -1226,93 +1245,43 @@ async function setWorkspacePathFlow(
     }
 
     case 'reset':
-      await resetStorageLocationFlow(context, refreshAll, false);
+      await resetStorageLocationFlow(context, refreshAll);
       return;
   }
 }
 
 /**
- * Offers a storage location the first time the view is opened in a workspace.
+ * Drives the view's welcome content.
  *
- * Without it the file is created in VS Code's private `workspaceStorage`, which
- * works but is invisible — and invisible is the wrong default for a file meant
- * to be shared with Obsidian or committed alongside the project. Asked once, and
- * only when there is nothing to lose: an existing list or an already configured
- * path means the choice has been made.
+ * The question of where a project stores its todos used to arrive as a
+ * notification, which VS Code stamps with a "Source: Toudou" label and hides
+ * after a few seconds. The empty view is a better place for it: it waits, it
+ * cannot be missed, and it sits exactly where the user is already looking.
  */
-async function promptForStorageLocation(
-  context: vscode.ExtensionContext,
-  refreshAll: () => void,
-  force = false,
-): Promise<void> {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) {
-    if (force) {
-      vscode.window.showWarningMessage(
-        vscode.l10n.t('Toudou: open a folder first — there is no workspace to store todos for.'),
-      );
-    }
-    return;
-  }
+function updateStorageContext(context: vscode.ExtensionContext): void {
+  const chosen =
+    context.workspaceState.get<boolean>(STORAGE_PROMPT_KEY) === true ||
+    storage.getWorkspaceStoragePath() !== undefined ||
+    !!vscode.workspace.getConfiguration('toudou').get<string>('defaultStoragePath');
+  void vscode.commands.executeCommand('setContext', 'toudou.storageUnset', !chosen);
+}
 
-  // Every gate below is about not interrupting someone who never asked. When the
-  // question is the point of the command, they all go.
-  if (!force) {
-    if (context.workspaceState.get<boolean>(STORAGE_PROMPT_KEY)) return;
-    if (storage.getWorkspaceStoragePath()) return;
-    if (vscode.workspace.getConfiguration('toudou').get<string>('defaultStoragePath')) return;
-
-    const isEmpty =
-      storage.getTodos().length === 0 &&
-      storage.getCategories().length === 0 &&
-      storage.getHistory().length === 0;
-    if (!isEmpty) return;
-  }
-
-  const createHere = vscode.l10n.t('Create in workspace');
-  const chooseLocation = vscode.l10n.t('Choose a file or folder…');
-  const never = vscode.l10n.t("Don't ask again");
-
-  const choice = await vscode.window.showInformationMessage(
-    vscode.l10n.t('Toudou: where should this workspace keep its todos?'),
-    createHere,
-    chooseLocation,
-    never,
-  );
-  // Dismissed, or auto-hidden after a few seconds — not an answer. Asking again
-  // next time is the friendlier reading.
-  if (choice === undefined) return;
-
-  const remember = () => context.workspaceState.update(STORAGE_PROMPT_KEY, true);
-
-  if (choice === createHere) {
-    await applyChosenStoragePath(DEFAULT_WORKSPACE_STORAGE, refreshAll);
-    await remember();
-    return;
-  }
-
-  if (choice === chooseLocation) {
-    const target = await pickStorageTarget(folders[0].uri);
-    if (!target) return; // cancelled: leave the question open
-    await applyChosenStoragePath(target.fsPath, refreshAll);
-    await remember();
-    return;
-  }
-
-  await remember();
+/** Settles the question, whichever way it was answered. */
+async function markStorageChoiceMade(context: vscode.ExtensionContext): Promise<void> {
+  await context.workspaceState.update(STORAGE_PROMPT_KEY, true);
+  updateStorageContext(context);
 }
 
 /**
- * Forgets where this workspace stores its todos and asks again.
+ * Forgets where this workspace stores its todos.
  *
  * The escape hatch for every dead end the choice can lead to: a path typed with
- * a typo, a synced folder that no longer exists, "Don't ask again" clicked too
+ * a typo, a synced folder that no longer exists, "keep the default" clicked too
  * fast. Nothing on disk is touched — only the pointer to it.
  */
 async function resetStorageLocationFlow(
   context: vscode.ExtensionContext,
   refreshAll: () => void,
-  reprompt = true,
 ): Promise<void> {
   const current = storage.getWorkspaceStoragePath() ?? storage.getStorageFileUri()?.fsPath;
 
@@ -1322,10 +1291,12 @@ async function resetStorageLocationFlow(
       modal: true,
       detail: current
         ? vscode.l10n.t(
-            'Toudou will stop using "{0}" and ask again where to store this workspace. The file itself is left untouched.',
+            'Toudou will stop using "{0}" and fall back to this machine\'s default location. The file itself is left untouched, and the view offers the choice again once it is empty.',
             current,
           )
-        : vscode.l10n.t('Toudou will ask again where to store this workspace. No file is deleted.'),
+        : vscode.l10n.t(
+            "Toudou will fall back to this machine's default location. No file is deleted.",
+          ),
     },
     vscode.l10n.t('Forget'),
   );
@@ -1334,11 +1305,8 @@ async function resetStorageLocationFlow(
   await context.workspaceState.update(STORAGE_PROMPT_KEY, undefined);
   await storage.setWorkspaceStoragePath(undefined);
   restartStorageWatcher();
+  updateStorageContext(context);
   refreshAll();
-
-  // Skipped when this came from the picker: they have just been offered every
-  // option, so throwing the same question back at them would be a loop.
-  if (reprompt) await promptForStorageLocation(context, refreshAll, true);
 }
 
 // --- Double-click detection ---

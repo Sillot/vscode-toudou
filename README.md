@@ -135,15 +135,15 @@ You can also set a **per-workspace** path via the command **Toudou: Set Workspac
 
 ### First use in a workspace
 
-The first time you open the Toudou view in a project that has no todos yet, Toudou asks where they should live:
+Until a project has been given a storage location, the empty Toudou view asks where its todos should live:
 
 | Choice | Result |
 | ------ | ------ |
 | **Create in workspace** | `.vscode/toudou.json`, next to the project and committable if you want it to be |
 | **Choose a file or folder…** | pick a file to use it as-is, or a folder to create `toudou-{workspace}.json` in it |
-| **Don't ask again** | keeps the invisible default in `workspaceStorage` |
+| **Keep the default location** | keeps the invisible default in `workspaceStorage` |
 
-The answer is stored per workspace, outside the project. Dismissing the notification is not an answer — the question comes back next time.
+The question lives in the view rather than in a notification: it waits instead of disappearing after a few seconds, and it costs nothing to ignore. The answer is stored per workspace, outside the project.
 
 The same choices stay available at any time under **Toudou: Set Workspace Storage Path** (view's `…` menu), which shows where the workspace currently writes and adds two more: enter a path by hand — the only form that accepts `{workspace}` and `~` — or reset to the machine default.
 
