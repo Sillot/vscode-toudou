@@ -24,7 +24,7 @@ A workspace-scoped todo list living right in your VS Code sidebar. Organize task
 
 ### Categories
 
-- Create, rename, and delete categories
+- Create, rename, and delete categories — add and delete buttons sit inline on each row
 - Assign an **emoji** to each category
 - Move todos between categories via the context menu or drag & drop
 
@@ -78,8 +78,9 @@ Six **Language Model Tools** are also registered so Copilot can create, list, co
 
 ### Storage
 
-- Data is stored **per workspace** in VS Code's `workspaceStorage` — never in your repo
-- Configurable storage path via settings or per-workspace override
+- Data is stored **per workspace**, by default in VS Code's `workspaceStorage` — outside your repo unless you ask for it
+- Each project can be pointed at its own file, in the workspace or anywhere on disk
+- The file can be **shared** with another editor, window or machine without either side losing edits
 - Inspect the raw JSON anytime with **Toudou: Open Storage File**
 
 ### Localization
@@ -113,7 +114,7 @@ All commands are available under the **Toudou** category in the Command Palette 
 
 | Setting                        | Description                                                                                  |
 | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `toudou.defaultStoragePath`    | Default path to the storage file. Use `{workspace}` as a placeholder for the workspace name. |
+| `toudou.defaultStoragePath`    | Default path to the storage file. Accepts `{workspace}` and `~`.                             |
 | `toudou.defaultAddMode`        | Which flow the `+` button runs: `quick` (title only) or `complete`. Default: `quick`.        |
 | `toudou.watchExternalChanges`  | Reload the storage file when another app edits it. Default: `true`.                          |
 | `toudou.watchIntervalSeconds`  | How often the file is checked for external changes: 2, 3, 5 or 10. Default: `3`.             |
@@ -122,18 +123,14 @@ All commands are available under the **Toudou** category in the Command Palette 
 
 The three other settings are **application-scoped**: they live in your user settings only, shared by every window, and no workspace can change them.
 
-To point one project at a different file, use the **Toudou: Set Workspace Storage Path** command rather than a workspace setting: it stores the override outside the project, so cloning a repository never changes where your todos are written.
-
-By default, Toudou stores its data in VS Code's `workspaceStorage` directory, completely outside your project. You can override this with `toudou.defaultStoragePath`:
+`toudou.defaultStoragePath` sets the default for every workspace on this machine. It accepts:
 
 - **Relative path** — resolved from the workspace root (e.g. `.vscode/toudou.json`). Must stay inside the workspace.
 - **Absolute path** — any location on disk (a warning is shown once per path).
 - **`~`** — expanded to your home directory.
 - **`{workspace}` placeholder** — replaced with a sanitized version of the workspace folder name (e.g. `~/.toudou/{workspace}.json`).
 
-You can also set a **per-workspace** path via the command **Toudou: Set Workspace Storage Path**, which takes precedence over the global setting.
-
-### First use in a workspace
+### Where a project stores its todos
 
 Until a project has been given a storage location, the empty Toudou view asks where its todos should live:
 
@@ -143,13 +140,11 @@ Until a project has been given a storage location, the empty Toudou view asks wh
 | **Choose a file or folder…** | pick a file to use it as-is, or a folder to create `toudou-{workspace}.json` in it |
 | **Keep the default location** | keeps the invisible default in `workspaceStorage` |
 
-The question lives in the view rather than in a notification: it waits instead of disappearing after a few seconds, and it costs nothing to ignore. The answer is stored per workspace, outside the project.
+The question lives in the view rather than in a notification: it waits instead of disappearing after a few seconds, and it costs nothing to ignore. Picking an existing file never overwrites it — Toudou reads it and merges its own writes into it, keeping anything it does not recognize.
 
-The same choices stay available at any time under **Toudou: Set Workspace Storage Path** (view's `…` menu), which shows where the workspace currently writes and adds two more: enter a path by hand — the only form that accepts `{workspace}` and `~` — or reset to the machine default.
+The same choices stay available at any time under **Toudou: Set Workspace Storage Path** (also in the view's `…` menu), which shows where the workspace currently writes and adds two more: enter a path by hand — the only form that accepts `{workspace}` and `~` — or reset to the machine default. **Toudou: Reset Storage Location** does that reset directly, with a confirmation naming the file it stops using.
 
-Picking an existing file never overwrites it: Toudou reads it and merges its own writes into it, keeping anything it does not recognize.
-
-**Toudou: Reset Storage Location** does that last one directly, with a confirmation naming the file it stops using. Nothing on disk is touched, only the pointer to it — the way out of a mistyped path, a synced folder that no longer exists, or a **Don't ask again** clicked too fast.
+Whichever way it is set, the per-workspace choice takes precedence over `toudou.defaultStoragePath` and is stored outside the project, so cloning a repository never changes where your todos are written. Nothing on disk is touched when it changes — only the pointer to it.
 
 ## Sharing the storage file
 
