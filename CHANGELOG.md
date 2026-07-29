@@ -32,6 +32,7 @@
 - New setting `toudou.watchExternalChanges` (default: `true`) to turn that off.
 - New setting `toudou.watchIntervalSeconds` (`2` | `3` | `5` | `10`, default: `3`).
 - New command "Reload Storage File" (`toudou.reloadStorage`) to force an immediate re-read.
+- Categories now carry an inline delete button, next to the existing add-todo one, matching what todos already had. Their todos become uncategorized rather than being deleted, and one undo brings the category back.
 - New command "Reset Storage Location" (`toudou.resetStorageLocation`), also in the view's `…` menu: forgets where the workspace stores its todos and asks again, without touching the file. The way out of a mistyped path, a synced folder that no longer exists, or a "Don't ask again" clicked too fast.
 - The view's `…` menu now also carries "Set Workspace Storage Path" and "Reload Storage File", which were reachable from the Command Palette only.
 - "Set Workspace Storage Path" now offers the same choices as the first-run question — create in the workspace, or browse for a file or folder — plus entering a path by hand and resetting to the machine default, with the current location shown. Changing where a project's todos live no longer means remembering the exact path syntax.

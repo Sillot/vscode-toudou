@@ -190,7 +190,8 @@
       },
       {
         "command": "toudou.deleteCategoryInline",
-        "title": "%command.deleteCategoryInline%"
+        "title": "%command.deleteCategoryInline%",
+        "icon": "$(trash)"
       },
       {
         "command": "toudou.copyTodoText",
@@ -509,6 +510,11 @@
           "command": "toudou.addTodoToCategory",
           "when": "view == toudouView && viewItem == category",
           "group": "inline@1"
+        },
+        {
+          "command": "toudou.deleteCategoryInline",
+          "when": "view == toudouView && viewItem == category",
+          "group": "inline@2"
         },
         {
           "command": "toudou.restoreTodoInline",
