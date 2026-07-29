@@ -82,5 +82,14 @@
   "Forget where this workspace stores its todos?": "Oublier où cet espace de travail range ses toudous ?",
   "Toudou will stop using \"{0}\" and ask again where to store this workspace. The file itself is left untouched.": "Toudou cessera d'utiliser « {0} » et redemandera où ranger cet espace de travail. Le fichier lui-même n'est pas modifié.",
   "Toudou will ask again where to store this workspace. No file is deleted.": "Toudou redemandera où ranger cet espace de travail. Aucun fichier n'est supprimé.",
-  "Forget": "Oublier"
+  "Forget": "Oublier",
+  "Toudou storage for this workspace": "Stockage Toudou pour cet espace de travail",
+  "Currently: {0}": "Actuellement : {0}",
+  "No storage file yet": "Aucun fichier de stockage pour l'instant",
+  "Enter a path…": "Saisir un chemin…",
+  "Reset to default": "Revenir au chemin par défaut",
+  "pick a folder and a file name": "choisir un dossier et un nom de fichier",
+  "a file shared with Obsidian or another window": "un fichier partagé avec Obsidian ou une autre fenêtre",
+  "supports {0} and ~": "accepte {0} et ~",
+  "back to the location this machine uses": "revient à l'emplacement utilisé par cette machine"
 }

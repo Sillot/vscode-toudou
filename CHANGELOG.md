@@ -34,6 +34,7 @@
 - New command "Reload Storage File" (`toudou.reloadStorage`) to force an immediate re-read.
 - New command "Reset Storage Location" (`toudou.resetStorageLocation`), also in the view's `…` menu: forgets where the workspace stores its todos and asks again, without touching the file. The way out of a mistyped path, a synced folder that no longer exists, or a "Don't ask again" clicked too fast.
 - The view's `…` menu now also carries "Set Workspace Storage Path" and "Reload Storage File", which were reachable from the Command Palette only.
+- "Set Workspace Storage Path" now offers the same choices as the first-run question — create in the workspace, choose a location, reuse an existing file — plus entering a path by hand and resetting to the machine default, with the current location shown. Changing where a project's todos live no longer means remembering the exact path syntax.
 - Toudou now asks where a workspace should keep its todos the first time its view is opened in a project that has none: create one in the workspace, choose a location and file name, reuse an existing file, or keep the invisible default. The answer is stored per workspace and outside the project, so cloning a repository can never decide where your todos are written. Only asked when there is nothing to lose — an existing list or a configured path means the choice is already made.
 
 ### Changed

@@ -366,7 +366,7 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     }),
     vscode.commands.registerCommand('toudou.setWorkspacePath', () =>
-      setWorkspacePathFlow(refreshAll),
+      setWorkspacePathFlow(context, refreshAll),
     ),
     vscode.commands.registerCommand('toudou.resetStorageLocation', () =>
       resetStorageLocationFlow(context, refreshAll),
@@ -1072,25 +1072,7 @@ async function openTodoInCopilot(todo: Todo, selected?: Todo[]): Promise<void> {
   await vscode.commands.executeCommand('workbench.action.chat.open', { query: message });
 }
 
-async function setWorkspacePathFlow(refreshAll: () => void): Promise<void> {
-  const current = storage.getWorkspaceStoragePath();
-
-  const newPath = await vscode.window.showInputBox({
-    prompt: vscode.l10n.t(
-      'Storage file path for this workspace (absolute or relative to workspace root)',
-    ),
-    placeHolder: vscode.l10n.t('e.g. .vscode/toudou.json or leave empty to reset'),
-    value: current ?? '',
-    ignoreFocusOut: true,
-  });
-  if (newPath === undefined) return; // cancelled
-
-  await storage.setWorkspaceStoragePath(newPath || undefined);
-  restartStorageWatcher();
-  refreshAll();
-}
-
-// --- First-run storage location ---
+// --- Storage location ---
 
 const STORAGE_PROMPT_KEY = 'storageLocationAsked';
 const DEFAULT_WORKSPACE_STORAGE = '.vscode/toudou.json';
@@ -1102,6 +1084,151 @@ async function applyChosenStoragePath(path: string, refreshAll: () => void): Pro
   await storage.setWorkspaceStoragePath(path);
   restartStorageWatcher();
   refreshAll();
+}
+
+/** Save dialog: pick both the folder and the file name. */
+function pickNewStorageFile(base: vscode.Uri): Thenable<vscode.Uri | undefined> {
+  return vscode.window.showSaveDialog({
+    defaultUri: vscode.Uri.joinPath(base, 'toudou.json'),
+    filters: { JSON: ['json'] },
+    saveLabel: vscode.l10n.t('Use this file'),
+    title: vscode.l10n.t('Choose where Toudou stores this workspace'),
+  });
+}
+
+/** Open dialog: reuse a file that already exists, typically shared with Obsidian. */
+async function pickExistingStorageFile(base: vscode.Uri): Promise<vscode.Uri | undefined> {
+  const picked = await vscode.window.showOpenDialog({
+    defaultUri: base,
+    canSelectFiles: true,
+    canSelectFolders: false,
+    canSelectMany: false,
+    filters: { JSON: ['json'] },
+    openLabel: vscode.l10n.t('Use this file'),
+    title: vscode.l10n.t('Select an existing Toudou storage file'),
+  });
+  return picked?.[0];
+}
+
+/** The typed form, the only one that accepts `{workspace}` and `~`. */
+async function promptForStoragePathText(current: string | undefined): Promise<string | undefined> {
+  return vscode.window.showInputBox({
+    prompt: vscode.l10n.t(
+      'Storage file path for this workspace (absolute or relative to workspace root)',
+    ),
+    placeHolder: vscode.l10n.t('e.g. .vscode/toudou.json or leave empty to reset'),
+    value: current ?? '',
+    ignoreFocusOut: true,
+  });
+}
+
+type StorageAction = 'workspace' | 'choose' | 'existing' | 'type' | 'reset';
+
+/**
+ * The storage location, changeable at any time rather than only on first use.
+ *
+ * Reached from the view's `…` menu: moving a project's todos into a synced
+ * folder, or onto the file Obsidian already writes, is a thing people decide
+ * long after opening the project for the first time.
+ */
+async function setWorkspacePathFlow(
+  context: vscode.ExtensionContext,
+  refreshAll: () => void,
+): Promise<void> {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) {
+    vscode.window.showWarningMessage(
+      vscode.l10n.t('Toudou: open a folder first — there is no workspace to store todos for.'),
+    );
+    return;
+  }
+
+  const override = storage.getWorkspaceStoragePath();
+  const current = storage.getStorageFileUri()?.fsPath;
+
+  // Icons stay out of the translated strings, which are the same ones the
+  // first-run notification uses.
+  const items: (vscode.QuickPickItem & { action: StorageAction })[] = [
+    {
+      label: `$(new-file) ${vscode.l10n.t('Create in workspace')}`,
+      description: DEFAULT_WORKSPACE_STORAGE,
+      action: 'workspace',
+    },
+    {
+      label: `$(save-as) ${vscode.l10n.t('Choose location…')}`,
+      description: vscode.l10n.t('pick a folder and a file name'),
+      action: 'choose',
+    },
+    {
+      label: `$(folder-opened) ${vscode.l10n.t('Use an existing file…')}`,
+      description: vscode.l10n.t('a file shared with Obsidian or another window'),
+      action: 'existing',
+    },
+    {
+      label: `$(edit) ${vscode.l10n.t('Enter a path…')}`,
+      // Passed as an argument: `l10n.t` would read a literal {workspace} as one
+      // of its own placeholders.
+      description: vscode.l10n.t('supports {0} and ~', '{workspace}'),
+      action: 'type',
+    },
+  ];
+  if (override) {
+    items.push({
+      label: `$(discard) ${vscode.l10n.t('Reset to default')}`,
+      description: vscode.l10n.t('back to the location this machine uses'),
+      action: 'reset',
+    });
+  }
+
+  const pick = await vscode.window.showQuickPick(items, {
+    title: vscode.l10n.t('Toudou storage for this workspace'),
+    placeHolder: current
+      ? vscode.l10n.t('Currently: {0}', current)
+      : vscode.l10n.t('No storage file yet'),
+    ignoreFocusOut: true,
+  });
+  if (!pick) return;
+
+  // Whatever they answer here is an answer: the first-run question has served
+  // its purpose and must not come back.
+  const remember = () => context.workspaceState.update(STORAGE_PROMPT_KEY, true);
+
+  switch (pick.action) {
+    case 'workspace':
+      await applyChosenStoragePath(DEFAULT_WORKSPACE_STORAGE, refreshAll);
+      await remember();
+      return;
+
+    case 'choose': {
+      const target = await pickNewStorageFile(folders[0].uri);
+      if (!target) return;
+      await applyChosenStoragePath(target.fsPath, refreshAll);
+      await remember();
+      return;
+    }
+
+    case 'existing': {
+      const target = await pickExistingStorageFile(folders[0].uri);
+      if (!target) return;
+      await applyChosenStoragePath(target.fsPath, refreshAll);
+      await remember();
+      return;
+    }
+
+    case 'type': {
+      const typed = await promptForStoragePathText(override);
+      if (typed === undefined) return;
+      await storage.setWorkspaceStoragePath(typed || undefined);
+      restartStorageWatcher();
+      refreshAll();
+      await remember();
+      return;
+    }
+
+    case 'reset':
+      await resetStorageLocationFlow(context, refreshAll, false);
+      return;
+  }
 }
 
 /**
@@ -1167,12 +1294,7 @@ async function promptForStorageLocation(
   }
 
   if (choice === chooseLocation) {
-    const target = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.joinPath(folders[0].uri, 'toudou.json'),
-      filters: { JSON: ['json'] },
-      saveLabel: vscode.l10n.t('Use this file'),
-      title: vscode.l10n.t('Choose where Toudou stores this workspace'),
-    });
+    const target = await pickNewStorageFile(folders[0].uri);
     if (!target) return; // cancelled: leave the question open
     await applyChosenStoragePath(target.fsPath, refreshAll);
     await remember();
@@ -1180,17 +1302,9 @@ async function promptForStorageLocation(
   }
 
   if (choice === openExisting) {
-    const picked = await vscode.window.showOpenDialog({
-      defaultUri: folders[0].uri,
-      canSelectFiles: true,
-      canSelectFolders: false,
-      canSelectMany: false,
-      filters: { JSON: ['json'] },
-      openLabel: vscode.l10n.t('Use this file'),
-      title: vscode.l10n.t('Select an existing Toudou storage file'),
-    });
-    if (!picked || picked.length === 0) return;
-    await applyChosenStoragePath(picked[0].fsPath, refreshAll);
+    const target = await pickExistingStorageFile(folders[0].uri);
+    if (!target) return;
+    await applyChosenStoragePath(target.fsPath, refreshAll);
     await remember();
     return;
   }
@@ -1208,6 +1322,7 @@ async function promptForStorageLocation(
 async function resetStorageLocationFlow(
   context: vscode.ExtensionContext,
   refreshAll: () => void,
+  reprompt = true,
 ): Promise<void> {
   const current = storage.getWorkspaceStoragePath() ?? storage.getStorageFileUri()?.fsPath;
 
@@ -1231,7 +1346,9 @@ async function resetStorageLocationFlow(
   restartStorageWatcher();
   refreshAll();
 
-  await promptForStorageLocation(context, refreshAll, true);
+  // Skipped when this came from the picker: they have just been offered every
+  // option, so throwing the same question back at them would be a loop.
+  if (reprompt) await promptForStorageLocation(context, refreshAll, true);
 }
 
 // --- Double-click detection ---
