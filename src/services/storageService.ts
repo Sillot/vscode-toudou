@@ -461,6 +461,35 @@ export function checkForExternalChanges(): Promise<boolean> {
   return queue(() => refreshIfChangedOnDisk());
 }
 
+/**
+ * Creates the storage file when it is missing, with whatever is currently held.
+ *
+ * The file is otherwise only written by the first mutation, so a freshly picked
+ * location stays empty on disk — nothing to open in an editor, nothing for
+ * Obsidian or a sync client to pick up, and no way to tell a working setup from
+ * a typo in the path. Returns true when the file was created.
+ *
+ * An unreadable file is left strictly alone: {@link save} already refuses to
+ * write over data it could not parse.
+ */
+export function ensureStorageFile(): Promise<boolean> {
+  return queue(async () => {
+    if (!resolvedFileUri || loadFailed) return false;
+
+    let signature: StorageSignature | undefined;
+    try {
+      signature = await readSignature(resolvedFileUri);
+    } catch (error) {
+      reportReadError(error);
+      return false;
+    }
+    if (signature) return false;
+
+    await save();
+    return true;
+  });
+}
+
 /** Forced re-read, behind the `toudou.reloadStorage` command. */
 export function reloadStorage(): Promise<boolean> {
   return queue(async () => {

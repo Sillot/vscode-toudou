@@ -56,6 +56,8 @@
   "Toudou: could not read the storage file. {0}": "Toudou : impossible de lire le fichier de stockage. {0}",
   "Toudou: the storage file is not valid JSON. {0}": "Toudou : le fichier de stockage n'est pas un JSON valide. {0}",
   "Toudou: could not save the storage file. {0}": "Toudou : impossible d'enregistrer le fichier de stockage. {0}",
+  "Toudou: could not open the storage file. {0}": "Toudou : impossible d'ouvrir le fichier de stockage. {0}",
+  "Toudou: no storage location yet. Pick one first.": "Toudou : aucun emplacement de stockage pour l'instant. Choisissez-en un d'abord.",
   "Storage file reloaded.": "Fichier de stockage rechargé.",
   "Storage file is already up to date.": "Le fichier de stockage est déjà à jour.",
   "Toudou: change not saved, the storage file could not be read. Fix or move \"{0}\", then run \"Toudou: Reload Storage File\".": "Toudou : modification non enregistrée, le fichier de stockage n'a pas pu être lu. Corrigez ou déplacez « {0} », puis lancez « Toudou : Recharger le fichier de stockage ».",

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1] - 2026-07-31
+
+### Fixed
+
+- The storage file is created when a location is chosen and when "Open Storage File" is run, instead of only appearing once the first todo is added. Opening it used to fail outright on a path that did not exist yet, and a freshly picked location left nothing on disk for Obsidian or a sync client to find — with no way to tell a working setup from a mistyped path.
+- The `+` button on a category follows `toudou.defaultAddMode` like the one in the view title. It asked for a description even in `quick` mode, which is the one thing that mode says it does not do.
+
 ## [1.2.0] - 2026-07-29
 
 ### Fixed

@@ -109,6 +109,56 @@ describe('a file that cannot be read', () => {
   });
 });
 
+describe('creating the file on demand', () => {
+  /** A window with no folder open: nothing triggers a write on its own. */
+  const UNNAMED = '/work/storage/toudou-default.json';
+
+  it('writes an empty file when there is none yet', async () => {
+    state.folders = undefined;
+    await init();
+    assert.equal(memfs.exists(UNNAMED), false, 'nothing is written before it is asked for');
+
+    assert.equal(await storage.ensureStorageFile(), true);
+
+    assert.deepEqual(JSON.parse(memfs.read(UNNAMED)!).todos, []);
+  });
+
+  it('recreates a file that vanished, from what is in memory', async () => {
+    memfs.seed(FILE, fileOf([todo('a', 'still here')]));
+    await init();
+
+    memfs.clear();
+    await storage.checkForExternalChanges();
+    assert.equal(await storage.ensureStorageFile(), true);
+
+    assert.deepEqual(
+      storedTodos().map((t) => t.title),
+      ['still here'],
+    );
+  });
+
+  it('leaves an existing file untouched', async () => {
+    memfs.seed(FILE, fileOf([todo('a', 'already there')]));
+    await init();
+
+    assert.equal(await storage.ensureStorageFile(), false);
+
+    assert.deepEqual(
+      storedTodos().map((t) => t.title),
+      ['already there'],
+    );
+  });
+
+  it('does not overwrite a file it failed to read', async () => {
+    memfs.seed(FILE, 'not json at all');
+    await init();
+
+    assert.equal(await storage.ensureStorageFile(), false);
+
+    assert.equal(memfs.read(FILE), 'not json at all');
+  });
+});
+
 describe('a file that disappears', () => {
   it('keeps the todos in memory instead of blanking the view', async () => {
     memfs.seed(FILE, fileOf([todo('a', 'still here')]));

@@ -3,7 +3,7 @@ import { createCategory } from './models/category';
 import { CompletedTodo, createTodo, duplicateTodo, Todo, TodoPriority } from './models/todo';
 import { HistoryProvider } from './providers/historyProvider';
 import { TodoProvider } from './providers/todoProvider';
-import { sanitizeWorkspaceName } from './services/storageCore';
+import { describeFsError, sanitizeWorkspaceName } from './services/storageCore';
 import * as storage from './services/storageService';
 import { initStorageWatcher, restartStorageWatcher } from './services/storageWatcher';
 import { registerTodoTools } from './tools/todoTools';
@@ -97,12 +97,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('toudou.addTodo', () => addTodoFlow()),
     vscode.commands.registerCommand('toudou.addQuickTodo', () => addQuickTodoFlow()),
-    vscode.commands.registerCommand('toudou.addTodoDefault', () => {
-      const mode = vscode.workspace
-        .getConfiguration('toudou')
-        .get<string>('defaultAddMode', 'quick');
-      return mode === 'complete' ? addTodoFlow() : addQuickTodoFlow();
-    }),
+    vscode.commands.registerCommand('toudou.addTodoDefault', () =>
+      isQuickAddMode() ? addQuickTodoFlow() : addTodoFlow(),
+    ),
     vscode.commands.registerCommand('toudou.completeTodo', () => completeTodoPalette()),
     vscode.commands.registerCommand('toudou.deleteTodo', () => deleteTodoPalette()),
     vscode.commands.registerCommand('toudou.addCategory', () => addCategoryFlow()),
@@ -354,10 +351,24 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.openSettings', () =>
       vscode.commands.executeCommand('workbench.action.openSettings', '@ext:Sillot.toudou'),
     ),
-    vscode.commands.registerCommand('toudou.openStorageFile', () => {
+    vscode.commands.registerCommand('toudou.openStorageFile', async () => {
       const uri = storage.getStorageFileUri();
-      if (uri) {
-        vscode.window.showTextDocument(uri);
+      if (!uri) {
+        vscode.window.showWarningMessage(
+          vscode.l10n.t('Toudou: no storage location yet. Pick one first.'),
+        );
+        return;
+      }
+      // Nothing is written until the first todo is added, so the file the user
+      // asked to see may not exist yet. Create it rather than opening an editor
+      // on a path that is not there.
+      await storage.ensureStorageFile();
+      try {
+        await vscode.window.showTextDocument(uri);
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          vscode.l10n.t('Toudou: could not open the storage file. {0}', describeFsError(error)),
+        );
       }
     }),
     vscode.commands.registerCommand('toudou.reloadStorage', async () => {
@@ -389,9 +400,12 @@ export function activate(context: vscode.ExtensionContext): void {
       await applyChosenStoragePath(target.fsPath, refreshAll);
       await markStorageChoiceMade(context);
     }),
-    vscode.commands.registerCommand('toudou.keepDefaultStorage', () =>
-      markStorageChoiceMade(context),
-    ),
+    vscode.commands.registerCommand('toudou.keepDefaultStorage', async () => {
+      // Also an answer to "which file do you want to use", so it gets the same
+      // treatment as the other two: the file exists once it has been chosen.
+      await storage.ensureStorageFile();
+      await markStorageChoiceMade(context);
+    }),
     vscode.commands.registerCommand('toudou.deleteSelected', async () => {
       const selection = todoTreeView.selection;
       storage.beginUndoBatch();
@@ -518,56 +532,52 @@ async function promptDescription(value: string | undefined): Promise<string | un
 }
 
 async function addTodoFlow(): Promise<void> {
-  const title = await vscode.window.showInputBox({
-    prompt: vscode.l10n.t('Todo title'),
-    placeHolder: vscode.l10n.t('What needs to be done?'),
-    ignoreFocusOut: true,
-    validateInput: (v) =>
-      v.length > MAX_TITLE_LENGTH
-        ? vscode.l10n.t('Too long (max {0} characters)', MAX_TITLE_LENGTH)
-        : undefined,
-  });
+  const title = await promptTodoTitle();
   if (!title) return;
 
   const categoryId = await pickOrCreateCategory();
   if (categoryId === null) return; // cancelled
 
-  const descResult = await vscode.window.showInputBox({
-    prompt: vscode.l10n.t('Description (optional)'),
-    placeHolder: vscode.l10n.t('Press Enter to skip'),
-    ignoreFocusOut: true,
-  });
-  const description = descResult?.trim() || undefined;
+  const description = await promptTodoDescription();
 
   const order = storage.getNextOrder(categoryId);
   await storage.addTodo(createTodo(title, categoryId, description, order));
 }
 
+/**
+ * The `+` on a category row. The category is already known, so it is never
+ * asked for; the rest follows `defaultAddMode` like the view's own `+`.
+ *
+ * It used to ask for a description whatever the setting said — the one thing
+ * `quick` promises it will not do.
+ */
 async function addTodoToCategoryFlow(categoryId: string): Promise<void> {
-  const title = await vscode.window.showInputBox({
-    prompt: vscode.l10n.t('Todo title'),
-    placeHolder: vscode.l10n.t('What needs to be done?'),
-    ignoreFocusOut: true,
-    validateInput: (v) =>
-      v.length > MAX_TITLE_LENGTH
-        ? vscode.l10n.t('Too long (max {0} characters)', MAX_TITLE_LENGTH)
-        : undefined,
-  });
+  const title = await promptTodoTitle();
   if (!title) return;
 
-  const descResult = await vscode.window.showInputBox({
-    prompt: vscode.l10n.t('Description (optional)'),
-    placeHolder: vscode.l10n.t('Press Enter to skip'),
-    ignoreFocusOut: true,
-  });
-  const description = descResult?.trim() || undefined;
+  const description = isQuickAddMode() ? undefined : await promptTodoDescription();
 
   const order = storage.getNextOrder(categoryId);
   await storage.addTodo(createTodo(title, categoryId, description, order));
 }
 
 async function addQuickTodoFlow(): Promise<void> {
-  const title = await vscode.window.showInputBox({
+  const title = await promptTodoTitle();
+  if (!title) return;
+
+  const order = storage.getNextOrder(undefined);
+  await storage.addTodo(createTodo(title, undefined, undefined, order));
+}
+
+function isQuickAddMode(): boolean {
+  return (
+    vscode.workspace.getConfiguration('toudou').get<string>('defaultAddMode', 'quick') !==
+    'complete'
+  );
+}
+
+function promptTodoTitle(): Thenable<string | undefined> {
+  return vscode.window.showInputBox({
     prompt: vscode.l10n.t('Todo title'),
     placeHolder: vscode.l10n.t('What needs to be done?'),
     ignoreFocusOut: true,
@@ -576,10 +586,16 @@ async function addQuickTodoFlow(): Promise<void> {
         ? vscode.l10n.t('Too long (max {0} characters)', MAX_TITLE_LENGTH)
         : undefined,
   });
-  if (!title) return;
+}
 
-  const order = storage.getNextOrder(undefined);
-  await storage.addTodo(createTodo(title, undefined, undefined, order));
+/** Skipping is the common answer, so an empty box is a valid one. */
+async function promptTodoDescription(): Promise<string | undefined> {
+  const answer = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t('Description (optional)'),
+    placeHolder: vscode.l10n.t('Press Enter to skip'),
+    ignoreFocusOut: true,
+  });
+  return answer?.trim() || undefined;
 }
 
 async function pickOrCreateCategory(): Promise<string | undefined | null> {
@@ -1103,6 +1119,10 @@ async function applyChosenStoragePath(path: string, refreshAll: () => void): Pro
   // afterwards would be noise.
   storage.acknowledgeStoragePath(path);
   await storage.setWorkspaceStoragePath(path);
+  // Answering "create it here" has to leave something there, even before the
+  // first todo: an empty folder is indistinguishable from a path that silently
+  // failed to resolve.
+  await storage.ensureStorageFile();
   restartStorageWatcher();
   refreshAll();
 }
@@ -1238,6 +1258,9 @@ async function setWorkspacePathFlow(
       const typed = await promptForStoragePathText(override);
       if (typed === undefined) return;
       await storage.setWorkspaceStoragePath(typed || undefined);
+      // An empty entry resets to the default, which is a "forget", not a choice
+      // of file — nothing to create there.
+      if (typed) await storage.ensureStorageFile();
       restartStorageWatcher();
       refreshAll();
       await remember();
