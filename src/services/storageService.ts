@@ -842,15 +842,11 @@ export async function completeTodoById(id: string): Promise<void> {
     const idx = data.todos.findIndex((t) => t.id === id);
     if (idx === -1) return false;
     const [todo] = data.todos.splice(idx, 1);
-    data.history.push({
-      id: todo.id,
-      title: todo.title,
-      description: todo.description,
-      categoryId: todo.categoryId,
-      priority: todo.priority,
-      createdAt: todo.createdAt,
-      completedAt: new Date().toISOString(),
-    });
+    // Spread rather than rebuilt field by field: another client's fields on
+    // the todo (Toudou Desktop's dueDate and tags) must survive completion.
+    // Only what makes no sense on a finished todo is left behind.
+    const { order: _order, inProgress: _inProgress, ...kept } = todo;
+    data.history.push({ ...kept, completedAt: new Date().toISOString() });
   });
 }
 
@@ -906,15 +902,14 @@ export async function restoreFromHistory(id: string): Promise<void> {
       data.categories.some((c) => c.id === completed.categoryId);
     const categoryId = categoryExists ? completed.categoryId : undefined;
 
+    // The other half of completion keeping foreign fields: without it the
+    // round trip complete-then-restore would still lose them.
+    const { completedAt: _completedAt, ...kept } = completed;
     data.todos.push({
-      id: completed.id,
-      title: completed.title,
-      description: completed.description,
+      ...kept,
       categoryId,
-      priority: completed.priority,
       inProgress: undefined,
       order: getNextOrder(categoryId),
-      createdAt: completed.createdAt,
     });
   });
 }

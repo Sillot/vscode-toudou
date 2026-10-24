@@ -214,6 +214,25 @@ describe('a file shared with another client', () => {
     assert.deepEqual(written.todos.at(-1), foreign, 'the foreign entry survives our write');
   });
 
+  it('keeps foreign fields through completion and restoration', async () => {
+    const tagged = { ...todo('a', 'ours'), tags: ['call'], dueDate: '2026-08-01' };
+    memfs.seed(FILE, fileOf([tagged]));
+    await init();
+
+    await storage.completeTodoById('a');
+    const done = (JSON.parse(memfs.read(FILE)!) as { history: Record<string, unknown>[] })
+      .history[0];
+    assert.deepEqual(done.tags, ['call']);
+    assert.equal(done.dueDate, '2026-08-01');
+    assert.equal('order' in done, false, 'a finished todo has no place in the list');
+
+    await storage.restoreFromHistory('a');
+    const back = (JSON.parse(memfs.read(FILE)!) as { todos: Record<string, unknown>[] }).todos[0];
+    assert.deepEqual(back.tags, ['call']);
+    assert.equal(back.dueDate, '2026-08-01');
+    assert.equal('completedAt' in back, false);
+  });
+
   it('applies a mutation on top of an edit made underneath it', async () => {
     memfs.seed(FILE, fileOf([todo('a', 'ours')]));
     await init();

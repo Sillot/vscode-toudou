@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Completing a todo, then restoring it, keeps the fields another client wrote on it. Both steps rebuilt the entry field by field, so Toudou Desktop's due date and tags disappeared as soon as the box was checked in VS Code.
+
 ## [1.2.1] - 2026-07-31
 
 ### Fixed
