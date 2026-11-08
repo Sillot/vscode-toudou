@@ -66,6 +66,12 @@ export function readTags(item: { tags?: unknown }): string[] {
   return normalizeTags(item.tags.filter((t): t is string => typeof t === 'string'));
 }
 
+/** Whether `tags` holds `name`, ignoring case: Toudou Desktop's `hasTag`. */
+export function hasTag(tags: readonly string[], name: string): boolean {
+  const needle = name.toLowerCase();
+  return tags.some((t) => t.toLowerCase() === needle);
+}
+
 /** True when `tags` holds a value Toudou must leave alone. */
 export function hasForeignTags(item: { tags?: unknown }): boolean {
   return item.tags !== undefined && !Array.isArray(item.tags);

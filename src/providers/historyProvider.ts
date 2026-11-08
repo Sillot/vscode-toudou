@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { matchesFilter, parseFilter, TodoFilter } from '../models/filter';
 import { CompletedTodo, formatTags, readDueDate, readTags } from '../models/todo';
 import { getCategoryById, getHistory } from '../services/storageService';
 
@@ -21,10 +22,13 @@ export class HistoryProvider implements vscode.TreeDataProvider<HistoryNode> {
   private _onDidChangeTreeData = new vscode.EventEmitter<HistoryNode | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+  /** Raw, for the indicator row; {@link filter} is what matching reads. */
   private filterText: string | undefined;
+  private filter: TodoFilter | undefined;
 
   setFilter(text: string | undefined): void {
     this.filterText = text;
+    this.filter = text ? parseFilter(text) : undefined;
     this.refresh();
   }
 
@@ -84,14 +88,9 @@ export class HistoryProvider implements vscode.TreeDataProvider<HistoryNode> {
 
   getChildren(): HistoryNode[] {
     const history = getHistory();
-    const filtered = this.filterText
-      ? history.filter((t) => {
-          const text = this.filterText!.toLowerCase();
-          return (
-            t.title.toLowerCase().includes(text) ||
-            (t.description !== undefined && t.description.toLowerCase().includes(text))
-          );
-        })
+    const filter = this.filter;
+    const filtered = filter
+      ? history.filter((t) => matchesFilter(t, [t.title, t.description], filter))
       : history;
     if (this.filterText) {
       return [{ kind: 'filter', text: this.filterText }, ...filtered];
