@@ -58,23 +58,35 @@ export function defaultData(): StorageData {
 
 // --- Validation ---
 
+// The same rules as Toudou Desktop's `ToudouFile.fromJson`, so an entry is
+// shown by both apps or by neither. What fails stays in the foreign lists and is
+// written back untouched.
+
 export function isValidCategory(item: unknown): item is Category {
   if (typeof item !== 'object' || item === null) return false;
   const o = item as Record<string, unknown>;
-  return typeof o.id === 'string' && typeof o.name === 'string' && typeof o.order === 'number';
+  return typeof o.id === 'string' && typeof o.name === 'string' && Number.isInteger(o.order);
 }
 
 export function isValidTodo(item: unknown): item is Todo {
   if (typeof item !== 'object' || item === null) return false;
   const o = item as Record<string, unknown>;
-  return typeof o.id === 'string' && typeof o.title === 'string' && typeof o.order === 'number';
+  return (
+    typeof o.id === 'string' &&
+    typeof o.title === 'string' &&
+    Number.isInteger(o.order) &&
+    typeof o.createdAt === 'string'
+  );
 }
 
 export function isValidCompletedTodo(item: unknown): item is CompletedTodo {
   if (typeof item !== 'object' || item === null) return false;
   const o = item as Record<string, unknown>;
   return (
-    typeof o.id === 'string' && typeof o.title === 'string' && typeof o.completedAt === 'string'
+    typeof o.id === 'string' &&
+    typeof o.title === 'string' &&
+    typeof o.createdAt === 'string' &&
+    typeof o.completedAt === 'string'
   );
 }
 

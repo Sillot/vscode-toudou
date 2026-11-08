@@ -94,6 +94,25 @@ describe('storage round-trip', () => {
     assert.equal(out.history.length, 1);
   });
 
+  it('validates like Toudou Desktop: integer order, createdAt required', () => {
+    const done = { id: 'h', title: 'done', createdAt: TODO.createdAt, completedAt: TODO.createdAt };
+    const raw = JSON.stringify({
+      categories: [
+        { id: 'c1', name: 'ok', order: 0 },
+        { id: 'c2', name: 'fractional', order: 1.5 },
+      ],
+      todos: [TODO, { ...TODO, id: 'f', order: 0.5 }, { ...TODO, id: 'n', createdAt: undefined }],
+      history: [done, { ...done, id: 'm', createdAt: 42 }],
+    });
+
+    const data = parseStorageData(raw);
+    assert.deepEqual(
+      [data.categories, data.todos, data.history].map((list) => list.map((e) => e.id)),
+      [['c1'], ['t1'], ['h']],
+    );
+    assert.deepEqual(roundTrip(raw), JSON.parse(raw), 'the rejected entries are written back');
+  });
+
   it('drops nothing when the file is only ours', () => {
     const raw = JSON.stringify({ workspace: 'demo', categories: [], todos: [TODO], history: [] });
     assert.deepEqual(roundTrip(raw), JSON.parse(raw));
