@@ -6,6 +6,10 @@
 
 - Tags, in the same format as Toudou Desktop: shown as `#call #work` beside each todo and Toudone and in their tooltips, set with **Edit Tags** in a todo's context menu (comma-separated, with the tags already used in the file listed), and asked for by the complete add flow. Quick add is unchanged. Tags are trimmed, lose their leading `#`, and are deduplicated case-insensitively; they survive completion, restore and duplication. A `tags` value written by another tool in a shape other than a list is left untouched. The `getToudouList` tool returns each todo's tags, and `manageToudou` accepts `tags` on `createTodo`.
 
+### Changed
+
+- Entries are validated like Toudou Desktop does: a todo or Toudone without a `createdAt`, or a todo or category whose `order` is not a whole number, is no longer shown. No version of the extension ever wrote one; such an entry can only come from another tool, and it stays in the file, written back untouched. The same file now shows the same entries in both apps.
+
 ### Fixed
 
 - Completing a todo, then restoring it, keeps the fields another client wrote on it. Both steps rebuilt the entry field by field, so Toudou Desktop's due date and tags disappeared as soon as the box was checked in VS Code.
