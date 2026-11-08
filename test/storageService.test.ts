@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { FsError, fakeContext, memfs, reset, shown, state, Uri } from './helpers/vscodeStub';
 import * as storage from '../src/services/storageService';
+import { categoryNameMatches, matchesFilter, parseFilter } from '../src/models/filter';
 import {
   compareByDueDate,
   createTodo,
@@ -632,5 +633,49 @@ describe('due dates', () => {
     await storage.setTodoDueDate('a', '2026-11-10');
     await storage.setTodoDueDate('a', undefined);
     assert.deepEqual(storedTodo().dueDate, { day: 10 });
+  });
+});
+
+describe('filter', () => {
+  const tagged = (tags: unknown) => ({ tags });
+  const keeps = (item: { tags?: unknown }, raw: string, fields: string[] = ['Call the bank']) =>
+    matchesFilter(item, fields, parseFilter(raw));
+
+  it('matches plain text on the fields and as a substring of tag names', () => {
+    assert.equal(keeps(tagged([]), 'bank'), true);
+    assert.equal(keeps(tagged(['rdv-medecin']), 'medecin'), true, 'tag names are searched');
+    assert.equal(keeps(tagged(['rdv-medecin']), 'MEDECIN'), true, 'case-insensitively');
+    assert.equal(keeps(tagged(['work']), 'garden'), false);
+  });
+
+  it('keeps only entries carrying the tag by its whole name, whatever its case', () => {
+    assert.equal(keeps(tagged(['Call']), '#call'), true);
+    assert.equal(keeps(tagged(['rdv-medecin']), '#rdv'), false, 'no substring in tag mode');
+    assert.equal(keeps(tagged([]), '#bank'), false, 'the title does not stand in for a tag');
+  });
+
+  it('requires every tag of the filter', () => {
+    assert.equal(keeps(tagged(['call', 'work']), '#call #WORK'), true);
+    assert.equal(keeps(tagged(['call']), '#call #work'), false);
+  });
+
+  it('reads a mixed filter as tags AND text', () => {
+    assert.equal(keeps(tagged(['call']), '#call bank'), true);
+    assert.equal(keeps(tagged(['call']), '#call garden'), false, 'the text must match too');
+    assert.equal(keeps(tagged([]), '#call bank'), false, 'and the tag must be carried');
+    assert.deepEqual(parseFilter('  #a  plain   #  words '), { tags: ['a'], text: 'plain words' });
+  });
+
+  it('treats a non-array tags value as no tags', () => {
+    assert.equal(keeps(tagged('call;bank'), '#call'), false);
+    assert.equal(keeps(tagged('call;bank'), 'call;bank', ['title']), false);
+    assert.equal(keeps(tagged('call;bank'), 'bank'), true, 'the fields still match');
+  });
+
+  it('never shows a category for its name in tag mode', () => {
+    assert.equal(categoryNameMatches('Work', parseFilter('work')), true);
+    assert.equal(categoryNameMatches('Work', parseFilter('#work')), false);
+    assert.equal(categoryNameMatches('Work', parseFilter('#call work')), false);
+    assert.equal(categoryNameMatches('Home', parseFilter('work')), false);
   });
 });

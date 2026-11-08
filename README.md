@@ -67,7 +67,7 @@ Every action is undoable (up to 50 states). Keyboard shortcuts:
 
 ### Filter
 
-Search todos by title or description in both panels.
+Search todos by title, description, category or tag in both panels. Type `#call` to keep only the todos carrying that tag, `#call #work` for both.
 
 ### In Progress
 

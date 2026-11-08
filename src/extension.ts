@@ -314,12 +314,7 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('toudou.sortByDueDate', () => storage.setSortMode('dueDate')),
     vscode.commands.registerCommand('toudou.filterTodos', async () => {
-      const value = await vscode.window.showInputBox({
-        prompt: vscode.l10n.t('Filter todos'),
-        placeHolder: vscode.l10n.t('Type to filter by title or description...'),
-        value: todoProvider.getFilter() ?? '',
-        ignoreFocusOut: true,
-      });
+      const value = await promptFilter(vscode.l10n.t('Filter todos'), todoProvider.getFilter());
       if (value === undefined) return; // cancelled
       todoProvider.setFilter(value.trim() || undefined);
     }),
@@ -327,12 +322,10 @@ export function activate(context: vscode.ExtensionContext): void {
       todoProvider.setFilter(undefined);
     }),
     vscode.commands.registerCommand('toudou.filterHistory', async () => {
-      const value = await vscode.window.showInputBox({
-        prompt: vscode.l10n.t('Filter toudones'),
-        placeHolder: vscode.l10n.t('Type to filter by title or description...'),
-        value: historyProvider.getFilter() ?? '',
-        ignoreFocusOut: true,
-      });
+      const value = await promptFilter(
+        vscode.l10n.t('Filter toudones'),
+        historyProvider.getFilter(),
+      );
       if (value === undefined) return; // cancelled
       historyProvider.setFilter(value.trim() || undefined);
     }),
@@ -629,15 +622,11 @@ async function promptTodoDescription(): Promise<string | undefined> {
  * used in the file. Empty means no tags; `undefined` means cancelled.
  */
 async function promptTags(current: readonly string[]): Promise<string[] | undefined> {
-  const known = storage.getAllTags();
-  const shown =
-    known.slice(0, MAX_TAG_SUGGESTIONS).join(', ') +
-    (known.length > MAX_TAG_SUGGESTIONS ? ', …' : '');
+  const inUse = tagsInUse();
   const answer = await vscode.window.showInputBox({
-    prompt:
-      known.length > 0
-        ? vscode.l10n.t('Tags, comma-separated. In use: {0}', shown)
-        : vscode.l10n.t('Tags, comma-separated'),
+    prompt: inUse
+      ? vscode.l10n.t('Tags, comma-separated. In use: {0}', inUse)
+      : vscode.l10n.t('Tags, comma-separated'),
     placeHolder: vscode.l10n.t('work, call, waiting'),
     value: current.join(', '),
     ignoreFocusOut: true,
@@ -647,6 +636,29 @@ async function promptTags(current: readonly string[]): Promise<string[] | undefi
         : undefined,
   });
   return answer === undefined ? undefined : normalizeTags(answer.split(','));
+}
+
+/** The file's tags, comma-separated and capped; empty when there are none. */
+function tagsInUse(): string {
+  const known = storage.getAllTags();
+  return (
+    known.slice(0, MAX_TAG_SUGGESTIONS).join(', ') +
+    (known.length > MAX_TAG_SUGGESTIONS ? ', …' : '')
+  );
+}
+
+/** Asks for a filter for one of the views; `undefined` when cancelled. */
+function promptFilter(title: string, current: string | undefined): Thenable<string | undefined> {
+  const inUse = tagsInUse();
+  return vscode.window.showInputBox({
+    title,
+    prompt: inUse
+      ? vscode.l10n.t('Type text, or #tag to filter by tag. Tags in use: {0}', inUse)
+      : vscode.l10n.t('Type text, or #tag to filter by tag.'),
+    placeHolder: vscode.l10n.t('Text or #tag...'),
+    value: current ?? '',
+    ignoreFocusOut: true,
+  });
 }
 
 async function pickOrCreateCategory(): Promise<string | undefined | null> {

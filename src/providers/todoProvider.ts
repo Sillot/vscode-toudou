@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
+import { categoryNameMatches, matchesFilter, parseFilter, TodoFilter } from '../models/filter';
 import {
   compareByDueDate,
   formatTags,
@@ -92,10 +93,13 @@ export class TodoProvider
   readonly dragMimeTypes = [DRAG_MIME];
   readonly dropMimeTypes = [DRAG_MIME];
 
+  /** Raw, for the indicator row; {@link filter} is what matching reads. */
   private filterText: string | undefined;
+  private filter: TodoFilter | undefined;
 
   setFilter(text: string | undefined): void {
     this.filterText = text;
+    this.filter = text ? parseFilter(text) : undefined;
     this.refresh();
   }
 
@@ -134,21 +138,14 @@ export class TodoProvider
   }
 
   private matchesFilter(todo: Todo): boolean {
-    if (!this.filterText) return true;
-    const text = this.filterText.toLowerCase();
-    if (todo.title.toLowerCase().includes(text)) return true;
-    if (todo.description !== undefined && todo.description.toLowerCase().includes(text))
-      return true;
-    if (todo.categoryId) {
-      const cat = getCategoryById(todo.categoryId);
-      if (cat && cat.name.toLowerCase().includes(text)) return true;
-    }
-    return false;
+    if (!this.filter) return true;
+    const cat = todo.categoryId ? getCategoryById(todo.categoryId) : undefined;
+    return matchesFilter(todo, [todo.title, todo.description, cat?.name], this.filter);
   }
 
   private categoryMatchesFilter(category: Category): boolean {
-    if (!this.filterText) return true;
-    return category.name.toLowerCase().includes(this.filterText.toLowerCase());
+    if (!this.filter) return true;
+    return categoryNameMatches(category.name, this.filter);
   }
 
   private getRootChildren(sortMode: SortMode): TreeNode[] {
