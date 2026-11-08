@@ -100,6 +100,8 @@ export class TodoProvider
   setFilter(text: string | undefined): void {
     this.filterText = text;
     this.filter = text ? parseFilter(text) : undefined;
+    // Shows the clear button in the view title only while a filter is set.
+    void vscode.commands.executeCommand('setContext', 'toudou.todoFilterActive', !!text);
     this.refresh();
   }
 
