@@ -95,5 +95,13 @@
   "Tags, comma-separated": "Tags, séparés par des virgules",
   "Tags, comma-separated. In use: {0}": "Tags, séparés par des virgules. Déjà utilisés : {0}",
   "work, call, waiting": "boulot, appel, attente",
-  "The tags of \"{0}\" were written by another tool in a format Toudou cannot edit.": "Les tags de « {0} » ont été écrits par un autre outil dans un format que Toudou ne sait pas modifier."
+  "The tags of \"{0}\" were written by another tool in a format Toudou cannot edit.": "Les tags de « {0} » ont été écrits par un autre outil dans un format que Toudou ne sait pas modifier.",
+  "due {0}": "échéance {0}",
+  "due {0} (overdue)": "échéance {0} (en retard)",
+  "Due: {0}": "Échéance : {0}",
+  "Due: {0} (overdue)": "Échéance : {0} (en retard)",
+  "Due date as YYYY-MM-DD (today is {0}). Leave empty to clear.": "Échéance au format AAAA-MM-JJ (nous sommes le {0}). Laisser vide pour l'effacer.",
+  "YYYY-MM-DD": "AAAA-MM-JJ",
+  "Enter a real date as YYYY-MM-DD.": "Saisissez une date qui existe, au format AAAA-MM-JJ.",
+  "The due date of \"{0}\" was written by another tool in a format Toudou cannot edit.": "L'échéance de « {0} » a été écrite par un autre outil dans un format que Toudou ne sait pas modifier."
 }

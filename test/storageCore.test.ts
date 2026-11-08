@@ -51,6 +51,10 @@ describe('parseStorageData', () => {
     assert.throws(() => parseStorageData('{'));
   });
 
+  it('accepts the due date sort mode', () => {
+    assert.equal(parseStorageData('{"sortMode":"dueDate"}').sortMode, 'dueDate');
+  });
+
   it('ignores an unknown sort mode', () => {
     assert.equal(parseStorageData('{"sortMode":"whatever"}').sortMode, undefined);
   });

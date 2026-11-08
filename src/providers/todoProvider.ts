@@ -1,10 +1,14 @@
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
 import {
+  compareByDueDate,
   formatTags,
+  isOverdue,
   NO_PRIORITY_ORDER,
   PRIORITY_ORDER,
+  readDueDate,
   readTags,
+  todayLocal,
   Todo,
   TodoPriority,
 } from '../models/todo';
@@ -64,6 +68,11 @@ function priorityCompare(a: Todo, b: Todo): number {
   const pb = b.priority ? PRIORITY_ORDER[b.priority] : NO_PRIORITY_ORDER;
   if (pa !== pb) return pa - pb;
   return a.order - b.order;
+}
+
+/** Modes listing every todo in one flat list, without category groups. */
+function isFlatSort(sortMode: SortMode): boolean {
+  return sortMode === 'priority' || sortMode === 'dueDate';
 }
 
 function isCategory(node: TreeNode): node is Category {
@@ -143,9 +152,10 @@ export class TodoProvider
   }
 
   private getRootChildren(sortMode: SortMode): TreeNode[] {
-    if (sortMode === 'priority') {
-      // Flat list of all todos sorted by priority
-      return [...getTodos()].filter((t) => this.matchesFilter(t)).sort(priorityCompare);
+    if (isFlatSort(sortMode)) {
+      return [...getTodos()]
+        .filter((t) => this.matchesFilter(t))
+        .sort(sortMode === 'dueDate' ? compareByDueDate : priorityCompare);
     }
     // manual, category, categoryPriority: uncategorized todos first, then categories
     const uncategorized = getUncategorizedTodos().filter((t) => this.matchesFilter(t));
@@ -303,8 +313,17 @@ export class TodoProvider
       arguments: [todo],
     };
 
+    const due = readDueDate(todo);
+    const overdue = isOverdue(todo, todayLocal());
+    // A state is shown as a coloured icon; in progress wins, overdue still
+    // reads in the description.
     if (todo.inProgress) {
       item.iconPath = new vscode.ThemeIcon('debug-start', new vscode.ThemeColor('charts.green'));
+    } else if (overdue) {
+      item.iconPath = new vscode.ThemeIcon(
+        'calendar',
+        new vscode.ThemeColor('list.errorForeground'),
+      );
     }
 
     const cat = todo.categoryId ? getCategoryById(todo.categoryId) : undefined;
@@ -315,6 +334,13 @@ export class TodoProvider
     const catLabel = cat ? (cat.emoji ? `${cat.emoji} ${cat.name}` : cat.name) : undefined;
     if (catLabel) {
       parts.push(vscode.l10n.t('Category: {0}', catLabel));
+    }
+    if (due) {
+      parts.push(
+        overdue
+          ? vscode.l10n.t('Due: {0} (overdue)', escapeMarkdown(due))
+          : vscode.l10n.t('Due: {0}', escapeMarkdown(due)),
+      );
     }
     const tagText = formatTags(readTags(todo));
     if (tagText) {
@@ -330,15 +356,19 @@ export class TodoProvider
     tooltip.isTrusted = { enabledCommands: ['toudou.copyTodoText'] };
     item.tooltip = tooltip;
 
-    // The category when sorted by priority (the tree no longer groups by it),
-    // the priority otherwise; tags after either.
-    const detail =
-      getSortMode() === 'priority'
-        ? catLabel
-        : todo.priority
-          ? priorityLabel(todo.priority)
-          : undefined;
-    item.description = [detail, tagText].filter(Boolean).join('  ') || undefined;
+    // The category in a flat sort (the tree no longer groups by it), the
+    // priority otherwise; then the due date and the tags.
+    const detail = isFlatSort(getSortMode())
+      ? catLabel
+      : todo.priority
+        ? priorityLabel(todo.priority)
+        : undefined;
+    const dueText = due
+      ? overdue
+        ? vscode.l10n.t('due {0} (overdue)', due)
+        : vscode.l10n.t('due {0}', due)
+      : undefined;
+    item.description = [detail, dueText, tagText].filter(Boolean).join('  ') || undefined;
 
     return item;
   }

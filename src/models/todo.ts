@@ -19,6 +19,8 @@ export interface Todo {
   createdAt: string;
   /** See {@link readTags}: the file may hold another tool's value here. */
   tags?: unknown;
+  /** See {@link readDueDate}. */
+  dueDate?: unknown;
 }
 
 export interface CompletedTodo {
@@ -31,6 +33,8 @@ export interface CompletedTodo {
   completedAt: string;
   /** Carried through completion and restore. See {@link readTags}. */
   tags?: unknown;
+  /** Carried through completion and restore. See {@link readDueDate}. */
+  dueDate?: unknown;
 }
 
 /**
@@ -72,6 +76,61 @@ export function formatTags(tags: readonly string[]): string {
   return tags.map((t) => `#${t}`).join(' ');
 }
 
+const DUE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * True for a real calendar day written `YYYY-MM-DD`: a plain date, not a
+ * timestamp, so "the 5th" is the same day in every time zone (Toudou Desktop's
+ * format). Rejects impossible days such as 2026-02-30.
+ */
+export function isValidDueDate(value: string): boolean {
+  if (!DUE_DATE_PATTERN.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  );
+}
+
+/**
+ * The due date of a todo or history entry. Like `tags`, a value that is not a
+ * string belongs to some other tool: shown as none, never rewritten. A string is
+ * used as it is, which is what Toudou Desktop does.
+ */
+export function readDueDate(item: { dueDate?: unknown }): string | undefined {
+  return typeof item.dueDate === 'string' && item.dueDate ? item.dueDate : undefined;
+}
+
+/** True when `dueDate` holds a value Toudou must leave alone. */
+export function hasForeignDueDate(item: { dueDate?: unknown }): boolean {
+  return item.dueDate !== undefined && typeof item.dueDate !== 'string';
+}
+
+/** Today's local calendar day, `YYYY-MM-DD`. */
+export function todayLocal(now: Date = new Date()): string {
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** Due strictly before `today`. Zero-padded ISO dates compare exactly as strings. */
+export function isOverdue(item: { dueDate?: unknown }, today: string): boolean {
+  const due = readDueDate(item);
+  return due !== undefined && due < today;
+}
+
+/**
+ * Soonest deadline first, undated todos last, ties in manual order: Toudou
+ * Desktop's `byDueDate`.
+ */
+export function compareByDueDate(a: Todo, b: Todo): number {
+  const da = readDueDate(a);
+  const db = readDueDate(b);
+  if (da === db) return a.order - b.order;
+  if (da === undefined) return 1;
+  if (db === undefined) return -1;
+  return da < db ? -1 : 1;
+}
+
 export function createTodo(
   title: string,
   categoryId?: string,
@@ -79,6 +138,7 @@ export function createTodo(
   order: number = 0,
   priority?: TodoPriority,
   tags: readonly string[] = [],
+  dueDate?: string,
 ): Todo {
   const normalized = normalizeTags(tags);
   return {
@@ -92,6 +152,7 @@ export function createTodo(
     createdAt: new Date().toISOString(),
     // Written only when there are some, like Toudou Desktop.
     tags: normalized.length > 0 ? normalized : undefined,
+    dueDate,
   };
 }
 
@@ -107,5 +168,6 @@ export function duplicateTodo(source: Todo, categoryId: string | undefined, orde
     order,
     createdAt: new Date().toISOString(),
     tags: tags.length > 0 ? tags : undefined,
+    dueDate: readDueDate(source),
   };
 }

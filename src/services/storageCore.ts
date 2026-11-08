@@ -9,9 +9,15 @@ import { CompletedTodo, Todo } from '../models/todo';
  * revisions, normalizing manual order — can be unit-tested outside VS Code.
  */
 
-export type SortMode = 'manual' | 'priority' | 'category' | 'categoryPriority';
+export type SortMode = 'manual' | 'priority' | 'category' | 'categoryPriority' | 'dueDate';
 
-const VALID_SORT_MODES: readonly string[] = ['manual', 'priority', 'category', 'categoryPriority'];
+const VALID_SORT_MODES: readonly string[] = [
+  'manual',
+  'priority',
+  'category',
+  'categoryPriority',
+  'dueDate',
+];
 
 /**
  * Everything in the file this version does not understand.

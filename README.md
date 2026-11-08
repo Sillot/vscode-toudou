@@ -20,6 +20,7 @@ A workspace-scoped todo list living right in your VS Code sidebar. Organize task
 - **Priorities** — high, medium, low — shown as inline labels and sortable
 - **Descriptions** — optional details visible in tooltips
 - **Tags** — free labels shown as `#call #work` beside each todo, set from the context menu
+- **Due dates** — a calendar day per todo, overdue ones flagged in red, set from the context menu
 - **Checkbox integration** — check to complete, uncheck to restore
 - **Double-click** a todo to rename it instantly
 
@@ -37,7 +38,7 @@ A workspace-scoped todo list living right in your VS Code sidebar. Organize task
 
 ### Sorting
 
-Four sort modes available from the title bar:
+Five sort modes available from the title bar:
 
 | Mode                    | Description                                    |
 | ----------------------- | ---------------------------------------------- |
@@ -45,6 +46,7 @@ Four sort modes available from the title bar:
 | **Priority**            | Flat list, highest priority first              |
 | **Category**            | Grouped by category, manual order inside       |
 | **Category + Priority** | Grouped by category, sorted by priority inside |
+| **Due Date**            | Flat list, soonest deadline first              |
 
 ### History (Toudones)
 
