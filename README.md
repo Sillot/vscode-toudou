@@ -19,6 +19,7 @@ A workspace-scoped todo list living right in your VS Code sidebar. Organize task
 - **Add, complete, delete and restore** todos from the sidebar or the Command Palette
 - **Priorities** — high, medium, low — shown as inline labels and sortable
 - **Descriptions** — optional details visible in tooltips
+- **Tags** — free labels shown as `#call #work` beside each todo, set from the context menu
 - **Checkbox integration** — check to complete, uncheck to restore
 - **Double-click** a todo to rename it instantly
 

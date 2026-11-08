@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { FsError, fakeContext, memfs, reset, shown, state, Uri } from './helpers/vscodeStub';
 import * as storage from '../src/services/storageService';
+import { createTodo, duplicateTodo, normalizeTags, readTags } from '../src/models/todo';
 
 /**
  * Exercises the storage service against an in-memory filesystem.
@@ -451,5 +452,87 @@ describe('storage path resolution', () => {
     await init();
 
     assert.match(shown.at(-1)!.message, /could not create the storage folder/);
+  });
+});
+
+describe('tags', () => {
+  /** The first stored todo, raw, as the next reader of the file would see it. */
+  function storedTodo(): Record<string, unknown> {
+    return (JSON.parse(memfs.read(FILE)!) as { todos: Record<string, unknown>[] }).todos[0];
+  }
+
+  it('normalizes like Toudou Desktop', () => {
+    assert.deepEqual(
+      normalizeTags([' #Call ', 'call', '##work', '', '  ', '# ', 'WORK', '#  spaced ']),
+      ['Call', 'work', 'spaced'],
+      'trimmed, leading # stripped, empties dropped, first spelling wins',
+    );
+  });
+
+  it('reads only an array, and only its strings', () => {
+    assert.deepEqual(readTags({ tags: 'call;bank' }), []);
+    assert.deepEqual(readTags({ tags: { call: true } }), []);
+    assert.deepEqual(readTags({ tags: ['call', 3, null, '#bank'] }), ['call', 'bank']);
+    assert.deepEqual(readTags({}), []);
+  });
+
+  it('writes tags at creation only when there are some', () => {
+    const plain = JSON.parse(JSON.stringify(createTodo('a'))) as Record<string, unknown>;
+    assert.equal('tags' in plain, false);
+    assert.deepEqual(createTodo('b', undefined, undefined, 0, undefined, ['#x', 'X']).tags, ['x']);
+  });
+
+  it('copies tags onto a duplicate', () => {
+    const source = { ...createTodo('a'), tags: ['call'] };
+    assert.deepEqual(duplicateTodo(source, undefined, 1).tags, ['call']);
+  });
+
+  it('sets normalized tags, and removes the key once they are cleared', async () => {
+    memfs.seed(FILE, fileOf([todo('a', 'ours')]));
+    await init();
+
+    await storage.setTodoTags('a', [' #Call', 'call', 'work ']);
+    assert.deepEqual(storedTodo().tags, ['Call', 'work']);
+
+    await storage.setTodoTags('a', []);
+    assert.equal('tags' in storedTodo(), false);
+  });
+
+  it('never overwrites a tags value another tool wrote in another shape', async () => {
+    const foreign = { ...todo('a', 'ours'), tags: 'call;bank' };
+    memfs.seed(FILE, fileOf([foreign]));
+    await init();
+
+    await storage.setTodoTags('a', ['work']);
+    assert.equal(storedTodo().tags, 'call;bank');
+    await storage.setTodoTags('a', []);
+    assert.equal(storedTodo().tags, 'call;bank', 'clearing does not drop it either');
+
+    await storage.completeTodoById('a');
+    await storage.restoreFromHistory('a');
+    assert.equal(storedTodo().tags, 'call;bank', 'and it survives a round trip');
+  });
+
+  it('lists every tag of the file once, sorted, ignoring foreign shapes', async () => {
+    memfs.seed(
+      FILE,
+      JSON.stringify({
+        categories: [],
+        todos: [
+          { ...todo('a', 'one'), tags: ['work', 'Call'] },
+          { ...todo('b', 'two', 1), tags: 'nope' },
+        ],
+        history: [
+          {
+            ...todo('c', 'done'),
+            completedAt: '2026-07-29T00:00:00.000Z',
+            tags: ['call', 'admin'],
+          },
+        ],
+      }),
+    );
+    await init();
+
+    assert.deepEqual(storage.getAllTags(), ['admin', 'Call', 'work']);
   });
 });

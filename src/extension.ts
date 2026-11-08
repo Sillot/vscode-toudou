@@ -1,6 +1,15 @@
 import * as vscode from 'vscode';
 import { createCategory } from './models/category';
-import { CompletedTodo, createTodo, duplicateTodo, Todo, TodoPriority } from './models/todo';
+import {
+  CompletedTodo,
+  createTodo,
+  duplicateTodo,
+  hasForeignTags,
+  normalizeTags,
+  readTags,
+  Todo,
+  TodoPriority,
+} from './models/todo';
 import { HistoryProvider } from './providers/historyProvider';
 import { TodoProvider } from './providers/todoProvider';
 import { describeFsError, sanitizeWorkspaceName } from './services/storageCore';
@@ -10,6 +19,10 @@ import { registerTodoTools } from './tools/todoTools';
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_CATEGORY_LENGTH = 100;
+/** For the whole comma-separated input, not per tag. */
+const MAX_TAGS_LENGTH = 500;
+/** Known tags listed in the prompt; past that the line becomes unreadable. */
+const MAX_TAG_SUGGESTIONS = 20;
 
 export function activate(context: vscode.ExtensionContext): void {
   const todoProvider = new TodoProvider();
@@ -222,6 +235,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.editTodoDescription', (todo: Todo) =>
       editTodoDescription(todo),
     ),
+    vscode.commands.registerCommand('toudou.editTodoTags', (todo: Todo) => editTodoTags(todo)),
     vscode.commands.registerCommand('toudou.changeTodoCategory', (todo: Todo, selected?: Todo[]) =>
       changeTodoCategory(todo, selected),
     ),
@@ -539,9 +553,10 @@ async function addTodoFlow(): Promise<void> {
   if (categoryId === null) return; // cancelled
 
   const description = await promptTodoDescription();
+  const tags = (await promptTags([])) ?? [];
 
   const order = storage.getNextOrder(categoryId);
-  await storage.addTodo(createTodo(title, categoryId, description, order));
+  await storage.addTodo(createTodo(title, categoryId, description, order, undefined, tags));
 }
 
 /**
@@ -555,10 +570,12 @@ async function addTodoToCategoryFlow(categoryId: string): Promise<void> {
   const title = await promptTodoTitle();
   if (!title) return;
 
-  const description = isQuickAddMode() ? undefined : await promptTodoDescription();
+  const quick = isQuickAddMode();
+  const description = quick ? undefined : await promptTodoDescription();
+  const tags = quick ? [] : ((await promptTags([])) ?? []);
 
   const order = storage.getNextOrder(categoryId);
-  await storage.addTodo(createTodo(title, categoryId, description, order));
+  await storage.addTodo(createTodo(title, categoryId, description, order, undefined, tags));
 }
 
 async function addQuickTodoFlow(): Promise<void> {
@@ -596,6 +613,31 @@ async function promptTodoDescription(): Promise<string | undefined> {
     ignoreFocusOut: true,
   });
   return answer?.trim() || undefined;
+}
+
+/**
+ * Comma-separated, like Toudou Desktop's tags field, listing the tags already
+ * used in the file. Empty means no tags; `undefined` means cancelled.
+ */
+async function promptTags(current: readonly string[]): Promise<string[] | undefined> {
+  const known = storage.getAllTags();
+  const shown =
+    known.slice(0, MAX_TAG_SUGGESTIONS).join(', ') +
+    (known.length > MAX_TAG_SUGGESTIONS ? ', …' : '');
+  const answer = await vscode.window.showInputBox({
+    prompt:
+      known.length > 0
+        ? vscode.l10n.t('Tags, comma-separated. In use: {0}', shown)
+        : vscode.l10n.t('Tags, comma-separated'),
+    placeHolder: vscode.l10n.t('work, call, waiting'),
+    value: current.join(', '),
+    ignoreFocusOut: true,
+    validateInput: (v) =>
+      v.length > MAX_TAGS_LENGTH
+        ? vscode.l10n.t('Too long (max {0} characters)', MAX_TAGS_LENGTH)
+        : undefined,
+  });
+  return answer === undefined ? undefined : normalizeTags(answer.split(','));
 }
 
 async function pickOrCreateCategory(): Promise<string | undefined | null> {
@@ -808,6 +850,21 @@ async function editTodoDescription(todo: Todo): Promise<void> {
   const result = await promptDescription(todo.description);
   if (result === null) return;
   await storage.updateTodo(todo.id, { description: result });
+}
+
+async function editTodoTags(todo: Todo): Promise<void> {
+  if (hasForeignTags(todo)) {
+    vscode.window.showWarningMessage(
+      vscode.l10n.t(
+        'The tags of "{0}" were written by another tool in a format Toudou cannot edit.',
+        todo.title,
+      ),
+    );
+    return;
+  }
+  const tags = await promptTags(readTags(todo));
+  if (tags === undefined) return;
+  await storage.setTodoTags(todo.id, tags);
 }
 
 async function changeTodoCategory(todo: Todo, selected?: Todo[]): Promise<void> {

@@ -1,7 +1,14 @@
 import { homedir } from 'node:os';
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
-import { CompletedTodo, Todo, TodoPriority } from '../models/todo';
+import {
+  CompletedTodo,
+  hasForeignTags,
+  normalizeTags,
+  readTags,
+  Todo,
+  TodoPriority,
+} from '../models/todo';
 import {
   applyManualOrder,
   defaultData,
@@ -953,6 +960,31 @@ export async function setTodoPriority(
     if (!todo) return false;
     todo.priority = priority;
   });
+}
+
+// --- Tags ---
+
+/**
+ * Sets a todo's tags, removing the key once none are left. Refused when the
+ * file's `tags` is not an array: that value is another tool's, and overwriting
+ * it would destroy its data.
+ */
+export async function setTodoTags(id: string, tags: readonly string[]): Promise<void> {
+  await mutate(() => {
+    const todo = data.todos.find((t) => t.id === id);
+    if (!todo || hasForeignTags(todo)) return false;
+    const normalized = normalizeTags(tags);
+    if (JSON.stringify(normalized) === JSON.stringify(readTags(todo))) return false;
+    if (normalized.length > 0) todo.tags = normalized;
+    else delete todo.tags;
+  });
+}
+
+/** Every tag used in the file, active or done, once each, sorted. */
+export function getAllTags(): string[] {
+  return normalizeTags([...data.todos, ...data.history].flatMap(readTags)).sort((a, b) =>
+    a.toLowerCase().localeCompare(b.toLowerCase()),
+  );
 }
 
 // --- In Progress ---

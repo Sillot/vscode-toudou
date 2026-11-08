@@ -181,6 +181,10 @@
         "title": "%command.editTodoDescription%"
       },
       {
+        "command": "toudou.editTodoTags",
+        "title": "%command.editTodoTags%"
+      },
+      {
         "command": "toudou.changeTodoCategory",
         "title": "%command.changeTodoCategory%"
       },
@@ -447,19 +451,24 @@
           "group": "1_edit@2"
         },
         {
-          "command": "toudou.changeTodoCategory",
+          "command": "toudou.editTodoTags",
           "when": "view == toudouView && viewItem == todo",
           "group": "1_edit@3"
         },
         {
-          "command": "toudou.changeTodoPriorityInline",
+          "command": "toudou.changeTodoCategory",
           "when": "view == toudouView && viewItem == todo",
           "group": "1_edit@4"
         },
         {
-          "command": "toudou.toggleInProgress",
+          "command": "toudou.changeTodoPriorityInline",
           "when": "view == toudouView && viewItem == todo",
           "group": "1_edit@5"
+        },
+        {
+          "command": "toudou.toggleInProgress",
+          "when": "view == toudouView && viewItem == todo",
+          "group": "1_edit@6"
         },
         {
           "command": "toudou.openInCopilot",
@@ -559,6 +568,10 @@
         },
         {
           "command": "toudou.editTodoDescription",
+          "when": "false"
+        },
+        {
+          "command": "toudou.editTodoTags",
           "when": "false"
         },
         {
@@ -699,7 +712,7 @@
         "description": "%tools.getToudouList.description%",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "getToudouList",
-        "modelDescription": "List all active (non-completed) todos and categories in the user's workspace. Optionally filter by category name. Returns id, title, category, priority, description and in-progress status for each todo, plus the list of existing categories.",
+        "modelDescription": "List all active (non-completed) todos and categories in the user's workspace. Optionally filter by category name. Returns id, title, category, priority, description, tags and in-progress status for each todo, plus the list of existing categories.",
         "parametersSchema": {
           "type": "object",
           "properties": {
@@ -717,7 +730,7 @@
         "description": "%tools.manageToudou.description%",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "manageToudou",
-        "modelDescription": "Manage todos and categories in the user's workspace. Use the 'action' parameter to specify the operation: 'createTodo' (create a new todo, optionally in a category), 'completeTodo' (mark as done and move to history), 'deleteTodo' (permanently remove a todo), 'createCategory' (create a new category), 'renameCategory' (rename an existing category), 'deleteCategory' (delete an empty category). Provide additional parameters depending on the action.",
+        "modelDescription": "Manage todos and categories in the user's workspace. Use the 'action' parameter to specify the operation: 'createTodo' (create a new todo, optionally in a category and with tags), 'completeTodo' (mark as done and move to history), 'deleteTodo' (permanently remove a todo), 'createCategory' (create a new category), 'renameCategory' (rename an existing category), 'deleteCategory' (delete an empty category). Provide additional parameters depending on the action.",
         "parametersSchema": {
           "type": "object",
           "properties": {
@@ -762,6 +775,14 @@
               "type": "string",
               "description": "Description (for createTodo)",
               "maxLength": 2000
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "description": "Tags for createTodo, plain names without '#' (e.g. [\"call\", \"work\"]). Matched case-insensitively."
             },
             "name": {
               "type": "string",
