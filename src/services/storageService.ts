@@ -1073,7 +1073,7 @@ const VALID_PRIORITIES: ReadonlySet<string> = new Set(['high', 'medium', 'low'])
 
 const IMPORT_MAX_TITLE = 500;
 const IMPORT_MAX_DESCRIPTION = 2000;
-const IMPORT_MAX_CATEGORY = 100;
+const IMPORT_MAX_CATEGORY = 500;
 const IMPORT_MAX_TODOS = 10_000;
 const IMPORT_MAX_CATEGORIES = 500;
 

@@ -5,7 +5,7 @@ import * as storage from '../services/storageService';
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_DESCRIPTION_LENGTH = 2000;
-const MAX_CATEGORY_LENGTH = 100;
+const MAX_CATEGORY_LENGTH = 500;
 /** Same budget as the tags input box: the comma-joined list. */
 const MAX_TAGS_LENGTH = 500;
 
