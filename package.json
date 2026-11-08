@@ -719,7 +719,7 @@
             "category": {
               "type": "string",
               "description": "Filter by category name",
-              "maxLength": 100
+              "maxLength": 500
             }
           }
         }
@@ -759,7 +759,7 @@
             "category": {
               "type": "string",
               "description": "Category name for createTodo (created automatically if it doesn't exist). Preferred over categoryId/categoryName.",
-              "maxLength": 100
+              "maxLength": 500
             },
             "categoryId": {
               "type": "string",
@@ -769,7 +769,7 @@
             "categoryName": {
               "type": "string",
               "description": "Category name for createTodo (alternative to category)",
-              "maxLength": 100
+              "maxLength": 500
             },
             "description": {
               "type": "string",
@@ -787,12 +787,12 @@
             "name": {
               "type": "string",
               "description": "Category name (for createCategory, renameCategory, deleteCategory)",
-              "maxLength": 100
+              "maxLength": 500
             },
             "newName": {
               "type": "string",
               "description": "New category name (for renameCategory)",
-              "maxLength": 100
+              "maxLength": 500
             }
           },
           "required": [

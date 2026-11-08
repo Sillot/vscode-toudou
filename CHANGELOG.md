@@ -9,6 +9,7 @@
 ### Changed
 
 - Entries are validated like Toudou Desktop does: a todo or Toudone without a `createdAt`, or a todo or category whose `order` is not a whole number, is no longer shown. No version of the extension ever wrote one; such an entry can only come from another tool, and it stays in the file, written back untouched. The same file now shows the same entries in both apps.
+- Category names may be up to 500 characters, like titles and like Toudou Desktop, instead of 100. The limit applies to the input boxes, the Copilot tools and import. An exported category name longer than 100 characters used to be dropped on import, which left its todos uncategorized.
 
 ### Fixed
 

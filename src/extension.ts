@@ -18,7 +18,8 @@ import { initStorageWatcher, restartStorageWatcher } from './services/storageWat
 import { registerTodoTools } from './tools/todoTools';
 
 const MAX_TITLE_LENGTH = 500;
-const MAX_CATEGORY_LENGTH = 100;
+/** Toudou Desktop's `maxTextLength`, for category names as for titles. */
+const MAX_CATEGORY_LENGTH = 500;
 /** For the whole comma-separated input, not per tag. */
 const MAX_TAGS_LENGTH = 500;
 /** Known tags listed in the prompt; past that the line becomes unreadable. */
