@@ -3,8 +3,11 @@ import * as vscode from 'vscode';
 import { Category } from '../models/category';
 import {
   CompletedTodo,
+  hasForeignDueDate,
   hasForeignTags,
+  isValidDueDate,
   normalizeTags,
+  readDueDate,
   readTags,
   Todo,
   TodoPriority,
@@ -985,6 +988,24 @@ export function getAllTags(): string[] {
   return normalizeTags([...data.todos, ...data.history].flatMap(readTags)).sort((a, b) =>
     a.toLowerCase().localeCompare(b.toLowerCase()),
   );
+}
+
+// --- Due date ---
+
+/**
+ * Sets a todo's due date (`YYYY-MM-DD`), or removes the key when `undefined`.
+ * Refused for an impossible date, and when the file's `dueDate` is not a string:
+ * that value is another tool's.
+ */
+export async function setTodoDueDate(id: string, dueDate: string | undefined): Promise<void> {
+  await mutate(() => {
+    const todo = data.todos.find((t) => t.id === id);
+    if (!todo || hasForeignDueDate(todo)) return false;
+    if (dueDate !== undefined && !isValidDueDate(dueDate)) return false;
+    if (dueDate === readDueDate(todo)) return false;
+    if (dueDate !== undefined) todo.dueDate = dueDate;
+    else delete todo.dueDate;
+  });
 }
 
 // --- In Progress ---

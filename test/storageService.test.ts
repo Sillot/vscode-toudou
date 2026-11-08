@@ -2,7 +2,16 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 import { FsError, fakeContext, memfs, reset, shown, state, Uri } from './helpers/vscodeStub';
 import * as storage from '../src/services/storageService';
-import { createTodo, duplicateTodo, normalizeTags, readTags } from '../src/models/todo';
+import {
+  compareByDueDate,
+  createTodo,
+  duplicateTodo,
+  isOverdue,
+  isValidDueDate,
+  normalizeTags,
+  readTags,
+  todayLocal,
+} from '../src/models/todo';
 
 /**
  * Exercises the storage service against an in-memory filesystem.
@@ -534,5 +543,94 @@ describe('tags', () => {
     await init();
 
     assert.deepEqual(storage.getAllTags(), ['admin', 'Call', 'work']);
+  });
+});
+
+describe('due dates', () => {
+  function storedTodo(): Record<string, unknown> {
+    return (JSON.parse(memfs.read(FILE)!) as { todos: Record<string, unknown>[] }).todos[0];
+  }
+
+  it('accepts only real calendar days written YYYY-MM-DD', () => {
+    for (const ok of ['2026-02-28', '2024-02-29', '2026-12-31']) assert.ok(isValidDueDate(ok), ok);
+    for (const bad of [
+      '2026-02-30',
+      '2025-02-29',
+      '2026-13-01',
+      '2026-00-10',
+      '2026-1-5',
+      '2026-11-05T00:00:00Z',
+      '',
+    ]) {
+      assert.equal(isValidDueDate(bad), false, bad);
+    }
+  });
+
+  it('is overdue strictly before today, by local calendar day', () => {
+    assert.equal(todayLocal(new Date(2026, 0, 5, 23, 59)), '2026-01-05');
+    assert.equal(isOverdue({ dueDate: '2026-01-04' }, '2026-01-05'), true);
+    assert.equal(isOverdue({ dueDate: '2026-01-05' }, '2026-01-05'), false);
+    assert.equal(isOverdue({ dueDate: 20260101 }, '2026-01-05'), false, 'a foreign value is none');
+    assert.equal(isOverdue({}, '2026-01-05'), false);
+  });
+
+  it('sorts soonest first, undated last, ties in manual order', () => {
+    const at = (id: string, order: number, dueDate?: string) => ({
+      ...todo(id, id, order),
+      dueDate,
+    });
+    const sorted = [
+      at('undated-late', 3),
+      at('later', 0, '2026-12-01'),
+      at('soon-b', 2, '2026-11-10'),
+      at('undated-early', 1),
+      at('soon-a', 1, '2026-11-10'),
+    ].sort((a, b) => compareByDueDate(a as never, b as never));
+    assert.deepEqual(
+      sorted.map((t) => t.id),
+      ['soon-a', 'soon-b', 'later', 'undated-early', 'undated-late'],
+    );
+  });
+
+  it('is omitted at creation when unset, and copied on duplicate', () => {
+    const plain = JSON.parse(JSON.stringify(createTodo('a'))) as Record<string, unknown>;
+    assert.equal('dueDate' in plain, false);
+    const dated = createTodo('b', undefined, undefined, 0, undefined, [], '2026-11-10');
+    assert.equal(duplicateTodo(dated, undefined, 1).dueDate, '2026-11-10');
+  });
+
+  it('sets, clears, and refuses an impossible date', async () => {
+    memfs.seed(FILE, fileOf([todo('a', 'ours')]));
+    await init();
+
+    await storage.setTodoDueDate('a', '2026-11-10');
+    assert.equal(storedTodo().dueDate, '2026-11-10');
+
+    await storage.setTodoDueDate('a', '2026-02-30');
+    assert.equal(storedTodo().dueDate, '2026-11-10', 'an impossible date changes nothing');
+
+    await storage.setTodoDueDate('a', undefined);
+    assert.equal('dueDate' in storedTodo(), false);
+  });
+
+  it('is carried through completion and restoration', async () => {
+    memfs.seed(FILE, fileOf([todo('a', 'ours')]));
+    await init();
+    await storage.setTodoDueDate('a', '2026-11-10');
+
+    await storage.completeTodoById('a');
+    assert.equal(storage.getHistory()[0].dueDate, '2026-11-10');
+    await storage.restoreFromHistory('a');
+    assert.equal(storedTodo().dueDate, '2026-11-10');
+  });
+
+  it('never overwrites a due date another tool wrote in another shape', async () => {
+    const foreign = { ...todo('a', 'ours'), dueDate: { day: 10 } };
+    memfs.seed(FILE, fileOf([foreign]));
+    await init();
+
+    await storage.setTodoDueDate('a', '2026-11-10');
+    await storage.setTodoDueDate('a', undefined);
+    assert.deepEqual(storedTodo().dueDate, { day: 10 });
   });
 });

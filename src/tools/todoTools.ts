@@ -1,6 +1,13 @@
 import * as vscode from 'vscode';
 import { createCategory } from '../models/category';
-import { createTodo, readTags } from '../models/todo';
+import {
+  createTodo,
+  isOverdue,
+  isValidDueDate,
+  readDueDate,
+  readTags,
+  todayLocal,
+} from '../models/todo';
 import * as storage from '../services/storageService';
 
 const MAX_TITLE_LENGTH = 500;
@@ -37,6 +44,14 @@ function validateTags(value: unknown): string | undefined {
   }
   if (value.join(', ').length > MAX_TAGS_LENGTH) {
     return `Tags are too long (max ${MAX_TAGS_LENGTH} characters in total).`;
+  }
+  return undefined;
+}
+
+function validateDueDate(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !isValidDueDate(value)) {
+    return 'Due date must be a real calendar day written YYYY-MM-DD, with no time.';
   }
   return undefined;
 }
@@ -78,10 +93,13 @@ class GetToudouListTool implements vscode.LanguageModelTool<GetToudouListParams>
       return textResult(`${catSection}\n\nNo todos found.`);
     }
 
+    const today = todayLocal();
     const todoLines = todos.map((t) => {
       const cat = categories.find((c) => c.id === t.categoryId);
       const parts = [`- [${cat?.name ?? 'Uncategorized'}] ${t.title}`];
       if (t.description) parts.push(`  ${t.description}`);
+      const due = readDueDate(t);
+      if (due) parts.push(`  Due: ${due}${isOverdue(t, today) ? ' (overdue)' : ''}`);
       const tags = readTags(t);
       if (tags.length > 0) parts.push(`  Tags: ${tags.join(', ')}`);
       if (t.inProgress) parts.push('  [IN PROGRESS]');
@@ -113,6 +131,7 @@ interface ManageToudouParams {
   categoryName?: string;
   description?: string;
   tags?: string[];
+  dueDate?: string;
   name?: string;
   newName?: string;
 }
@@ -151,6 +170,8 @@ class ManageToudouTool implements vscode.LanguageModelTool<ManageToudouParams> {
     if (descErr) return textResult(descErr);
     const tagsErr = validateTags(params.tags);
     if (tagsErr) return textResult(tagsErr);
+    const dueErr = validateDueDate(params.dueDate);
+    if (dueErr) return textResult(dueErr);
 
     let categoryId: string | undefined;
     const categoryInput = params.category ?? params.categoryName;
@@ -173,7 +194,15 @@ class ManageToudouTool implements vscode.LanguageModelTool<ManageToudouParams> {
     }
 
     const order = storage.getNextOrder(categoryId);
-    const todo = createTodo(title!, categoryId, description, order, undefined, params.tags);
+    const todo = createTodo(
+      title!,
+      categoryId,
+      description,
+      order,
+      undefined,
+      params.tags,
+      params.dueDate,
+    );
     await storage.addTodo(todo);
 
     const catName = categoryId ? storage.getCategoryById(categoryId)?.name : undefined;

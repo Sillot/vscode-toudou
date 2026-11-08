@@ -5,6 +5,9 @@
 ### Added
 
 - Tags, in the same format as Toudou Desktop: shown as `#call #work` beside each todo and Toudone and in their tooltips, set with **Edit Tags** in a todo's context menu (comma-separated, with the tags already used in the file listed), and asked for by the complete add flow. Quick add is unchanged. Tags are trimmed, lose their leading `#`, and are deduplicated case-insensitively; they survive completion, restore and duplication. A `tags` value written by another tool in a shape other than a list is left untouched. The `getToudouList` tool returns each todo's tags, and `manageToudou` accepts `tags` on `createTodo`.
+- Due dates, in the same format as Toudou Desktop: a calendar day written `YYYY-MM-DD`, never a timestamp. Set or cleared with **Edit Due Date** in a todo's context menu, which only accepts dates that exist (2026-02-30 is refused). The date appears beside each todo and Toudone and in their tooltips. An overdue todo, one due before today, shows a red calendar icon and reads "(overdue)". A due date survives completion, restore and duplication. A `dueDate` another tool wrote as something other than a string is left untouched.
+- **Sort by > Due Date**: one flat list, soonest deadline first, undated todos last, ties in manual order, as in Toudou Desktop. A file Desktop saved in this mode no longer comes back sorted manually.
+- The `getToudouList` tool returns each todo's due date and flags it when overdue; `manageToudou` accepts `dueDate` on `createTodo`.
 
 ### Changed
 

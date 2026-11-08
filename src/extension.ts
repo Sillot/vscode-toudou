@@ -4,9 +4,13 @@ import {
   CompletedTodo,
   createTodo,
   duplicateTodo,
+  hasForeignDueDate,
   hasForeignTags,
+  isValidDueDate,
   normalizeTags,
+  readDueDate,
   readTags,
+  todayLocal,
   Todo,
   TodoPriority,
 } from './models/todo';
@@ -237,6 +241,9 @@ export function activate(context: vscode.ExtensionContext): void {
       editTodoDescription(todo),
     ),
     vscode.commands.registerCommand('toudou.editTodoTags', (todo: Todo) => editTodoTags(todo)),
+    vscode.commands.registerCommand('toudou.editTodoDueDate', (todo: Todo) =>
+      editTodoDueDate(todo),
+    ),
     vscode.commands.registerCommand('toudou.changeTodoCategory', (todo: Todo, selected?: Todo[]) =>
       changeTodoCategory(todo, selected),
     ),
@@ -305,6 +312,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('toudou.sortByCategoryPriority', () =>
       storage.setSortMode('categoryPriority'),
     ),
+    vscode.commands.registerCommand('toudou.sortByDueDate', () => storage.setSortMode('dueDate')),
     vscode.commands.registerCommand('toudou.filterTodos', async () => {
       const value = await vscode.window.showInputBox({
         prompt: vscode.l10n.t('Filter todos'),
@@ -866,6 +874,34 @@ async function editTodoTags(todo: Todo): Promise<void> {
   const tags = await promptTags(readTags(todo));
   if (tags === undefined) return;
   await storage.setTodoTags(todo.id, tags);
+}
+
+/** Typed as `YYYY-MM-DD`; empty clears it, Escape cancels. */
+async function editTodoDueDate(todo: Todo): Promise<void> {
+  if (hasForeignDueDate(todo)) {
+    vscode.window.showWarningMessage(
+      vscode.l10n.t(
+        'The due date of "{0}" was written by another tool in a format Toudou cannot edit.',
+        todo.title,
+      ),
+    );
+    return;
+  }
+  const answer = await vscode.window.showInputBox({
+    prompt: vscode.l10n.t(
+      'Due date as YYYY-MM-DD (today is {0}). Leave empty to clear.',
+      todayLocal(),
+    ),
+    placeHolder: vscode.l10n.t('YYYY-MM-DD'),
+    value: readDueDate(todo) ?? '',
+    ignoreFocusOut: true,
+    validateInput: (v) =>
+      !v.trim() || isValidDueDate(v.trim())
+        ? undefined
+        : vscode.l10n.t('Enter a real date as YYYY-MM-DD.'),
+  });
+  if (answer === undefined) return;
+  await storage.setTodoDueDate(todo.id, answer.trim() || undefined);
 }
 
 async function changeTodoCategory(todo: Todo, selected?: Todo[]): Promise<void> {
