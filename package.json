@@ -330,7 +330,7 @@
       {
         "command": "toudou.clearFilter",
         "title": "%command.clearFilter%",
-        "icon": "$(close)"
+        "icon": "$(clear-all)"
       },
       {
         "command": "toudou.filterHistory",
@@ -341,7 +341,7 @@
       {
         "command": "toudou.clearHistoryFilter",
         "title": "%command.clearHistoryFilter%",
-        "icon": "$(close)"
+        "icon": "$(clear-all)"
       },
       {
         "command": "toudou.exportTodos",
@@ -389,6 +389,11 @@
           "group": "navigation@5"
         },
         {
+          "command": "toudou.clearFilter",
+          "when": "view == toudouView && toudou.todoFilterActive",
+          "group": "navigation@6"
+        },
+        {
           "command": "toudou.purgeHistory",
           "when": "view == toudouHistoryView",
           "group": "navigation@1"
@@ -397,6 +402,11 @@
           "command": "toudou.filterHistory",
           "when": "view == toudouHistoryView",
           "group": "navigation@2"
+        },
+        {
+          "command": "toudou.clearHistoryFilter",
+          "when": "view == toudouHistoryView && toudou.historyFilterActive",
+          "group": "navigation@3"
         },
         {
           "command": "toudou.exportTodos",
