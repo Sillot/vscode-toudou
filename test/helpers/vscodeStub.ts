@@ -251,8 +251,7 @@ export const memfs = new MemoryFs();
 
 export const state = {
   folders: [{ uri: Uri.file('/work/project'), name: 'project', index: 0 }] as
-    | { uri: Uri; name: string; index: number }[]
-    | undefined,
+    { uri: Uri; name: string; index: number }[] | undefined,
   config: new Map<string, unknown>(),
 };
 
