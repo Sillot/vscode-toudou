@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import { createCategory } from '../models/category';
-import { createTodo } from '../models/todo';
+import { createTodo, readTags } from '../models/todo';
 import * as storage from '../services/storageService';
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_CATEGORY_LENGTH = 100;
+/** Same budget as the tags input box: the comma-joined list. */
+const MAX_TAGS_LENGTH = 500;
 
 function textResult(message: string): vscode.LanguageModelToolResult {
   return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(message)]);
@@ -23,6 +25,18 @@ function validateString(
   }
   if (value.length > maxLength) {
     return `${label} is too long (max ${maxLength} characters).`;
+  }
+  return undefined;
+}
+
+/** The model's input is untrusted: the schema is a hint, not a guarantee. */
+function validateTags(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.some((t) => typeof t !== 'string')) {
+    return 'Tags must be an array of strings.';
+  }
+  if (value.join(', ').length > MAX_TAGS_LENGTH) {
+    return `Tags are too long (max ${MAX_TAGS_LENGTH} characters in total).`;
   }
   return undefined;
 }
@@ -68,6 +82,8 @@ class GetToudouListTool implements vscode.LanguageModelTool<GetToudouListParams>
       const cat = categories.find((c) => c.id === t.categoryId);
       const parts = [`- [${cat?.name ?? 'Uncategorized'}] ${t.title}`];
       if (t.description) parts.push(`  ${t.description}`);
+      const tags = readTags(t);
+      if (tags.length > 0) parts.push(`  Tags: ${tags.join(', ')}`);
       if (t.inProgress) parts.push('  [IN PROGRESS]');
       return parts.join('\n');
     });
@@ -96,6 +112,7 @@ interface ManageToudouParams {
   categoryId?: string;
   categoryName?: string;
   description?: string;
+  tags?: string[];
   name?: string;
   newName?: string;
 }
@@ -132,6 +149,8 @@ class ManageToudouTool implements vscode.LanguageModelTool<ManageToudouParams> {
     if (titleErr) return textResult(titleErr);
     const descErr = validateString(description, 'Description', MAX_DESCRIPTION_LENGTH, false);
     if (descErr) return textResult(descErr);
+    const tagsErr = validateTags(params.tags);
+    if (tagsErr) return textResult(tagsErr);
 
     let categoryId: string | undefined;
     const categoryInput = params.category ?? params.categoryName;
@@ -154,7 +173,7 @@ class ManageToudouTool implements vscode.LanguageModelTool<ManageToudouParams> {
     }
 
     const order = storage.getNextOrder(categoryId);
-    const todo = createTodo(title!, categoryId, description, order);
+    const todo = createTodo(title!, categoryId, description, order, undefined, params.tags);
     await storage.addTodo(todo);
 
     const catName = categoryId ? storage.getCategoryById(categoryId)?.name : undefined;

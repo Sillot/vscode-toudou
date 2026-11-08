@@ -1,6 +1,13 @@
 import * as vscode from 'vscode';
 import { Category } from '../models/category';
-import { NO_PRIORITY_ORDER, PRIORITY_ORDER, Todo, TodoPriority } from '../models/todo';
+import {
+  formatTags,
+  NO_PRIORITY_ORDER,
+  PRIORITY_ORDER,
+  readTags,
+  Todo,
+  TodoPriority,
+} from '../models/todo';
 import type { SortMode } from '../services/storageService';
 
 import {
@@ -305,9 +312,13 @@ export class TodoProvider
     if (todo.priority) {
       parts.push(vscode.l10n.t('Priority: {0}', priorityLabel(todo.priority)));
     }
-    if (cat) {
-      const catLabel = cat.emoji ? `${cat.emoji} ${cat.name}` : cat.name;
+    const catLabel = cat ? (cat.emoji ? `${cat.emoji} ${cat.name}` : cat.name) : undefined;
+    if (catLabel) {
       parts.push(vscode.l10n.t('Category: {0}', catLabel));
+    }
+    const tagText = formatTags(readTags(todo));
+    if (tagText) {
+      parts.push(vscode.l10n.t('Tags: {0}', escapeMarkdown(tagText)));
     }
     if (todo.description) {
       parts.push('---', escapeMarkdown(todo.description));
@@ -319,18 +330,15 @@ export class TodoProvider
     tooltip.isTrusted = { enabledCommands: ['toudou.copyTodoText'] };
     item.tooltip = tooltip;
 
-    const sortMode = getSortMode();
-    if (sortMode === 'priority') {
-      // Show category name as description
-      if (cat) {
-        item.description = cat.emoji ? `${cat.emoji} ${cat.name}` : cat.name;
-      }
-    } else {
-      // Show priority as description
-      if (todo.priority) {
-        item.description = priorityLabel(todo.priority);
-      }
-    }
+    // The category when sorted by priority (the tree no longer groups by it),
+    // the priority otherwise; tags after either.
+    const detail =
+      getSortMode() === 'priority'
+        ? catLabel
+        : todo.priority
+          ? priorityLabel(todo.priority)
+          : undefined;
+    item.description = [detail, tagText].filter(Boolean).join('  ') || undefined;
 
     return item;
   }

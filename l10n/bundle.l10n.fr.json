@@ -90,5 +90,10 @@
   "File too large (max 5 MB).": "Fichier trop volumineux (max 5 Mo).",
   "High": "Haute",
   "Medium": "Moyenne",
-  "Low": "Basse"
+  "Low": "Basse",
+  "Tags: {0}": "Tags : {0}",
+  "Tags, comma-separated": "Tags, séparés par des virgules",
+  "Tags, comma-separated. In use: {0}": "Tags, séparés par des virgules. Déjà utilisés : {0}",
+  "work, call, waiting": "boulot, appel, attente",
+  "The tags of \"{0}\" were written by another tool in a format Toudou cannot edit.": "Les tags de « {0} » ont été écrits par un autre outil dans un format que Toudou ne sait pas modifier."
 }
